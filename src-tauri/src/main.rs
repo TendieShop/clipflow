@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::process::Command;
+use serde::Serialize;
 use tauri::Manager;
 
 #[tauri::command]
@@ -8,19 +10,46 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
-fn get_video_duration(file_path: &str) -> Result<f64, String> {
-    // This would use FFmpeg to get video duration
-    // For now, return a placeholder
-    Ok(0.0)
+async fn get_video_duration(file_path: &str) -> Result<f64, String> {
+    // Use ffprobe to get video duration
+    let output = Command::new("ffprobe")
+        .args(&[
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            file_path,
+        ])
+        .output();
+
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                let duration_str = String::from_utf8_lossy(&output.stdout);
+                if let Ok(duration) = duration_str.trim().parse::<f64>() {
+                    Ok(duration)
+                } else {
+                    Err("Failed to parse duration".to_string())
+                }
+            } else {
+                let error = String::from_utf8_lossy(&output.stderr);
+                Err(format!("ffprobe failed: {}", error))
+            }
+        }
+        Err(e) => Err(format!("Failed to run ffprobe: {}", e)),
+    }
 }
 
 #[tauri::command]
-fn analyze_silence(file_path: &str, threshold: f64) -> Result<Vec<SilenceSegment>, String> {
+async fn analyze_silence(file_path: &str, threshold: f64) -> Result<Vec<SilenceSegment>, String> {
     // This would analyze audio for silence
+    // For now, return an empty result
     Ok(vec![])
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize)]
 struct SilenceSegment {
     start: f64,
     end: f64,

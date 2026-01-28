@@ -1,123 +1,291 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { VideoPreviewGrid, VideoPlayer, VideoFile } from './components/VideoPreview';
+import { ImportDialog } from './components/ImportDialog';
 
 function App() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [videos, setVideos] = useState<VideoFile[]>([]);
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+
+  const selectedVideo = videos.find((v) => v.id === selectedVideoId) || null;
+
+  const handleImport = useCallback((newVideos: VideoFile[]) => {
+    setVideos((prev) => [...prev, ...newVideos]);
+    if (!selectedVideoId && newVideos.length > 0) {
+      setSelectedVideoId(newVideos[0].id);
+    }
+  }, [selectedVideoId]);
+
+  const handleRemoveVideo = useCallback((id: string) => {
+    setVideos((prev) => prev.filter((v) => v.id !== id));
+    if (selectedVideoId === id) {
+      setSelectedVideoId(null);
+    }
+  }, [selectedVideoId]);
+
+  const selectedVideoSrc = selectedVideo ? `file://${selectedVideo.path}` : null;
 
   return (
     <div className="app">
       <header className="header">
-        <h1>Clip<span>Flow</span></h1>
-        <nav>
-          <button className="btn btn-secondary">Settings</button>
-        </nav>
+        <div className="header-left">
+          <h1>Clip<span>Flow</span></h1>
+        </div>
+        <div className="header-actions">
+          <button className="btn btn-secondary" onClick={() => setShowImportDialog(true)}>
+            + Import Videos
+          </button>
+          <button className="btn btn-primary" disabled={videos.length === 0}>
+            Export
+          </button>
+        </div>
       </header>
 
       <main className="main-content">
-        <section className="hero">
-          <h2>AI-Powered Video Editing</h2>
-          <p>
-            Import your raw footage and let ClipFlow do the heavy lifting. 
-            Silence detection, transcription, and AI-powered narrative editing — all in one app.
-          </p>
-          <ImportSection />
-        </section>
+        <div className="workspace">
+          <aside className="sidebar">
+            <div className="sidebar-header">
+              <h2>Videos</h2>
+              <span className="video-count">{videos.length}</span>
+            </div>
+            <VideoPreviewGrid
+              videos={videos}
+              selectedId={selectedVideoId}
+              onSelectVideo={setSelectedVideoId}
+            />
+          </aside>
 
-        <section className="features">
-          <FeatureCard
-            icon="🎬"
-            title="Smart Silence Detection"
-            description="Automatically detect and remove silent portions of your footage for cleaner, tighter edits."
-          />
-          <FeatureCard
-            icon="📝"
-            title="AI Transcription"
-            description="Whisper-powered transcription with filler word detection. Remove 'hmm', 'aah', and ums with one click."
-          />
-          <FeatureCard
-            icon="🤖"
-            title="Narrative AI"
-            description="Claude-powered AI analyzes your footage and suggests edits that tell a compelling story."
-          />
-          <FeatureCard
-            icon="🎨"
-            title="Timeline Editor"
-            description="Full NLE features with drag-and-drop timeline. Reorder clips and refine AI suggestions."
-          />
-        </section>
-      </main>
-    </div>
-  );
-}
+          <section className="preview-area">
+            <VideoPlayer src={selectedVideoSrc} />
+          </section>
 
-interface Project {
-  id: string;
-  name: string;
-  createdAt: Date;
-}
+          <aside className="sidebar right-sidebar">
+            <div className="sidebar-header">
+              <h2>Timeline</h2>
+            </div>
+            <div className="timeline-placeholder">
+              <p>Timeline editor coming soon</p>
+              <p className="hint">Drag videos here to reorder</p>
+            </div>
+          </aside>
+        </div>
 
-function ImportSection() {
-  const [isDragging, setIsDragging] = useState(false);
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    // Handle file drop
-    console.log('Files dropped:', e.dataTransfer.files);
-  };
-
-  return (
-    <div
-      className="import-section"
-      style={{
-        borderColor: isDragging ? 'var(--accent)' : undefined,
-      }}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      <svg
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+        <ImportDialog
+          isOpen={showImportDialog}
+          onClose={() => setShowImportDialog(false)}
+          onImport={handleImport}
         />
-      </svg>
-      <h3>Import Video Footage</h3>
-      <p>Drag and drop your video files here, or click to browse</p>
-    </div>
-  );
-}
+      </main>
 
-function FeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="feature-card">
-      <h4>
-        <span>{icon}</span>
-        {title}
-      </h4>
-      <p>{description}</p>
+      <style>{`
+        .app {
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          background: var(--bg-primary);
+        }
+
+        .header {
+          background: var(--bg-secondary);
+          padding: 0.75rem 1.5rem;
+          border-bottom: 1px solid var(--bg-tertiary);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-shrink: 0;
+        }
+
+        .header h1 {
+          font-size: 1.25rem;
+          font-weight: 600;
+        }
+
+        .header h1 span {
+          color: var(--accent);
+        }
+
+        .header-actions {
+          display: flex;
+          gap: 0.75rem;
+        }
+
+        .main-content {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+
+        .workspace {
+          flex: 1;
+          display: grid;
+          grid-template-columns: 280px 1fr 280px;
+          gap: 1px;
+          background: var(--bg-tertiary);
+          overflow: hidden;
+        }
+
+        .sidebar {
+          background: var(--bg-secondary);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+
+        .right-sidebar {
+          border-left: 1px solid var(--bg-tertiary);
+        }
+
+        .sidebar-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 1rem;
+          border-bottom: 1px solid var(--bg-tertiary);
+          flex-shrink: 0;
+        }
+
+        .sidebar-header h2 {
+          font-size: 0.875rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: var(--text-secondary);
+        }
+
+        .video-count {
+          background: var(--accent);
+          color: white;
+          font-size: 0.75rem;
+          font-weight: 500;
+          padding: 0.125rem 0.5rem;
+          border-radius: 9999px;
+        }
+
+        .preview-area {
+          background: var(--bg-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1.5rem;
+        }
+
+        .video-grid-empty {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          color: var(--text-secondary);
+          padding: 2rem;
+          text-align: center;
+        }
+
+        .video-grid-empty .hint {
+          font-size: 0.8125rem;
+          margin-top: 0.5rem;
+          opacity: 0.7;
+        }
+
+        .timeline-placeholder {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          color: var(--text-secondary);
+          padding: 2rem;
+          text-align: center;
+        }
+
+        .timeline-placeholder .hint {
+          font-size: 0.8125rem;
+          margin-top: 0.5rem;
+          opacity: 0.7;
+        }
+
+        .video-preview {
+          padding: 0.75rem 1rem;
+          cursor: pointer;
+          border-bottom: 1px solid var(--bg-tertiary);
+          transition: background 0.2s;
+        }
+
+        .video-preview:hover {
+          background: var(--bg-tertiary);
+        }
+
+        .video-preview.selected {
+          background: rgba(59, 130, 246, 0.1);
+          border-left: 2px solid var(--accent);
+        }
+
+        .video-info {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+          margin-top: 0.5rem;
+        }
+
+        .video-name {
+          font-size: 0.8125rem;
+          font-weight: 500;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .video-status {
+          font-size: 0.6875rem;
+          color: var(--text-secondary);
+        }
+
+        .video-status.importing {
+          color: var(--warning);
+        }
+
+        .video-status.ready {
+          color: var(--success);
+        }
+
+        .video-status.processing {
+          color: var(--accent);
+        }
+
+        .video-status.done {
+          color: var(--success);
+        }
+
+        .video-player {
+          width: 100%;
+          max-width: 900px;
+          aspect-ratio: 16/9;
+          background: var(--bg-secondary);
+          border-radius: 8px;
+          overflow: hidden;
+        }
+
+        .video-player.empty {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          color: var(--text-secondary);
+        }
+
+        .video-player.empty svg {
+          width: 64px;
+          height: 64px;
+          margin-bottom: 1rem;
+          opacity: 0.5;
+        }
+
+        .video-player video {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+        }
+      `}</style>
     </div>
   );
 }
