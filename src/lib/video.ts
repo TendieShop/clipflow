@@ -91,3 +91,60 @@ export async function exportVideo(
     throw error;
   }
 }
+
+// Whisper Transcription - Local AI (no cloud API)
+
+export interface TranscriptionSegment {
+  id: number;
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface TranscriptionResult {
+  text: string;
+  segments: TranscriptionSegment[];
+  language: string;
+  duration: number;
+}
+
+export interface WhisperModel {
+  name: string;
+  size: string;
+  vram: string;
+  description: string;
+}
+
+export async function transcribeAudio(
+  inputPath: string,
+  model: string = "base"
+): Promise<TranscriptionResult> {
+  try {
+    const result = await invoke<TranscriptionResult>("transcribe_audio", {
+      inputPath,
+      model,
+    });
+    return result;
+  } catch (error) {
+    console.error("Failed to transcribe audio:", error);
+    throw error;
+  }
+}
+
+export async function getAvailableWhisperModels(): Promise<WhisperModel[]> {
+  try {
+    const models = await invoke<WhisperModel[]>("get_available_whisper_models");
+    return models;
+  } catch (error) {
+    console.error("Failed to get Whisper models:", error);
+    throw error;
+  }
+}
+
+// Helper to format time as MM:SS.ms
+export function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds % 1) * 100);
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+}

@@ -215,6 +215,150 @@ async fn export_video(input_path: &str, output_path: &str, quality: &str) -> Res
     }
 }
 
+/// Whisper Transcription - Local AI (no cloud API)
+/// Uses OpenAI's Whisper model installed locally
+
+#[tauri::command]
+async fn transcribe_audio(input_path: &str, model: &str) -> Result<TranscriptionResult, String> {
+    // Extract audio to temp WAV file for Whisper
+    let temp_wav = "/tmp/clipflow_audio.wav";
+    
+    // Extract audio using ffmpeg
+    let extract_status = Command::new("ffmpeg")
+        .args(&[
+            "-i", input_path,
+            "-vn",
+            "-acodec", "pcm_s16le",
+            "-ar", "16000",
+            "-ac", "1",
+            temp_wav,
+            "-y",
+        ])
+        .status();
+
+    match extract_status {
+        Ok(status) => {
+            if !status.success() {
+                return Err("Failed to extract audio for transcription".to_string());
+            }
+        }
+        Err(e) => return Err(format!("Failed to run ffmpeg: {}", e)),
+    }
+
+    // Run Whisper transcription
+    let output = Command::new("whisper")
+        .args(&[
+            temp_wav,
+            "--model", model,
+            "--output_format", "json",
+            "--output_dir", "/tmp",
+            "--language", "English",
+        ])
+        .output();
+
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                // Parse the JSON output
+                let json_path = temp_wav.replace(".wav", ".json");
+                match std::fs::read_to_string(&json_path) {
+                    Ok(json_content) => {
+                        match serde_json::from_str::<serde_json::Value>(&json_content) {
+                            Ok(json) => {
+                                let segments = json["segments"]
+                                    .as_array()
+                                    .unwrap_or(&vec![])
+                                    .iter()
+                                    .map(|seg| TranscriptionSegment {
+                                        id: seg["id"].as_i64().unwrap_or(0) as usize,
+                                        start: seg["start"].as_f64().unwrap_or(0.0),
+                                        end: seg["end"].as_f64().unwrap_or(0.0),
+                                        text: seg["text"].as_str().unwrap_or("").trim().to_string(),
+                                    })
+                                    .collect();
+
+                                Ok(TranscriptionResult {
+                                    text: json["text"].as_str().unwrap_or("").trim().to_string(),
+                                    segments,
+                                    language: json["language"].as_str().unwrap_or("en").to_string(),
+                                    duration: json["duration"].as_f64().unwrap_or(0.0),
+                                })
+                            }
+                            Err(_) => Err("Failed to parse Whisper output".to_string()),
+                        }
+                    }
+                    Err(_) => Err("Failed to read Whisper output file".to_string()),
+                }
+            } else {
+                let error = String::from_utf8_lossy(&output.stderr);
+                Err(format!("Whisper failed: {}", error))
+            }
+        }
+        Err(e) => Err(format!("Failed to run Whisper: {}", e)),
+    }
+}
+
+#[tauri::command]
+async fn get_available_whisper_models() -> Result<Vec<WhisperModel>, String> {
+    // Return available Whisper models with their requirements
+    Ok(vec![
+        WhisperModel {
+            name: "tiny".to_string(),
+            size: "39 MB",
+            vram: "~1 GB",
+            description: "Fastest, lowest quality".to_string(),
+        },
+        WhisperModel {
+            name: "base".to_string(),
+            size: "74 MB",
+            vram: "~1 GB",
+            description: "Good balance of speed/quality".to_string(),
+        },
+        WhisperModel {
+            name: "small".to_string(),
+            size: "244 MB",
+            vram: "~2 GB",
+            description: "Better accuracy".to_string(),
+        },
+        WhisperModel {
+            name: "medium".to_string(),
+            size: "769 MB",
+            vram: "~5 GB",
+            description: "High accuracy, slower".to_string(),
+        },
+        WhisperModel {
+            name: "large".to_string(),
+            size: "1550 MB",
+            vram: "~10 GB",
+            description: "Highest accuracy, slowest".to_string(),
+        },
+    ])
+}
+
+#[derive(Serialize)]
+struct TranscriptionResult {
+    text: String,
+    segments: Vec<TranscriptionSegment>,
+    language: String,
+    duration: f64,
+}
+
+#[derive(Serialize)]
+struct TranscriptionSegment {
+    id: usize,
+    start: f64,
+    end: f64,
+    text: String,
+}
+
+#[derive(Serialize)]
+struct WhisperModel {
+    name: String,
+    size: String,
+    vram: String,
+    description: String,
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_shell::init())
@@ -225,7 +369,9 @@ fn main() {
             cut_video_remove,
             extract_audio,
             analyze_silence,
-            export_video
+            export_video,
+            transcribe_audio,
+            get_available_whisper_models
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
