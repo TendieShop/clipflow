@@ -8,36 +8,7 @@ on:
 
 jobs:
   gate:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Build
-        run: npm run build
-
-      - name: Test with Coverage
-        run: npm run test
-
-      - name: Notify WhatsApp on Failure
-        if: failure()
-        run: |
-          curl -X POST "http://localhost:3232/api/message" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "action": "send",
-              "channel": "whatsapp",
-              "message": "🔴 Gate Failed: ClipFlow\n\nLint, Build, or Test failed. Check: https://github.com/TendieShop/clipflow/actions"
-            }' 2>/dev/null || echo "WhatsApp notification failed"
+    uses: TendieShop/.github/.github/workflows/full-gate.yml@main
+    with:
+      project_name: ClipFlow
+      coverage_threshold: 80
