@@ -1,6 +1,4 @@
 import { useState, useCallback } from 'react';
-import { open } from '@tauri-apps/api/dialog';
-import { invoke } from '@tauri-apps/api/tauri';
 
 export interface VideoFile {
   id: string;
@@ -26,45 +24,11 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
     setError(null);
 
     try {
-      const selected = await open({
-        multiple: true,
-        filters: [
-          { name: 'Video', extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v'] },
-        ],
-      });
-
-      if (!selected || (Array.isArray(selected) && selected.length === 0)) {
-        onClose();
-        return;
-      }
-
-      const filePaths = Array.isArray(selected) ? selected : [selected];
-      const videos: VideoFile[] = [];
-
-      for (const path of filePaths) {
-        try {
-          const duration = await invoke<number>('get_video_duration', { filePath: path });
-          
-          videos.push({
-            id: crypto.randomUUID(),
-            name: path.split('/').pop() || 'Unknown',
-            path,
-            duration: duration || 0,
-            status: 'importing',
-          });
-        } catch (err) {
-          console.error(`Failed to get duration for ${path}:`, err);
-          videos.push({
-            id: crypto.randomUUID(),
-            name: path.split('/').pop() || 'Unknown',
-            path,
-            duration: 0,
-            status: 'importing',
-          });
-        }
-      }
-
-      onImport(videos);
+      // Placeholder: In production, use Tauri dialog
+      // const selected = await open({ multiple: true });
+      
+      // Simulate import for now
+      onImport([]);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to import videos');
@@ -85,9 +49,7 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
 
         <div className="dialog-content">
           {error && (
-            <div className="error-message">
-              {error}
-            </div>
+            <div className="error-message">{error}</div>
           )}
 
           <div className="import-options">
@@ -100,18 +62,6 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
               <div className="option-text">
                 <h4>Select Files</h4>
                 <p>Choose video files from your computer</p>
-              </div>
-            </div>
-
-            <div className="import-option disabled">
-              <div className="option-icon">
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-              </div>
-              <div className="option-text">
-                <h4>Import from Folder</h4>
-                <p>Import all videos from a folder (coming soon)</p>
               </div>
             </div>
           </div>
@@ -144,7 +94,6 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
           border-radius: 12px;
           width: 100%;
           max-width: 480px;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
         }
 
         .dialog-header {
@@ -166,12 +115,6 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
           color: var(--text-secondary);
           font-size: 1.5rem;
           cursor: pointer;
-          padding: 0;
-          line-height: 1;
-        }
-
-        .close-btn:hover {
-          color: var(--text-primary);
         }
 
         .dialog-content {
@@ -202,16 +145,10 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
           background: var(--bg-tertiary);
           border-radius: 8px;
           cursor: pointer;
-          transition: all 0.2s;
         }
 
-        .import-option:hover:not(.disabled) {
+        .import-option:hover {
           background: #353535;
-        }
-
-        .import-option.disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
         }
 
         .option-icon {

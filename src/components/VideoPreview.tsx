@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useRef } from 'react';
 
-interface VideoFile {
+export interface VideoFile {
   id: string;
   name: string;
   path: string;
@@ -16,8 +16,6 @@ interface VideoPreviewProps {
 }
 
 export function VideoPreview({ video, isSelected, onSelect }: VideoPreviewProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -26,6 +24,7 @@ export function VideoPreview({ video, isSelected, onSelect }: VideoPreviewProps)
 
   return (
     <div
+      data-testid="video-preview"
       className={`video-preview ${isSelected ? 'selected' : ''}`}
       onClick={onSelect}
     >

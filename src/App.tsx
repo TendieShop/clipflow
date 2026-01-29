@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
-import { VideoPreviewGrid, VideoPlayer, VideoFile } from './components/VideoPreview';
+import { VideoPreviewGrid, VideoPlayer } from './components/VideoPreview';
 import { ImportDialog } from './components/ImportDialog';
+import type { VideoFile } from './components/VideoPreview';
 
 function App() {
   const [videos, setVideos] = useState<VideoFile[]>([]);
@@ -13,13 +14,6 @@ function App() {
     setVideos((prev) => [...prev, ...newVideos]);
     if (!selectedVideoId && newVideos.length > 0) {
       setSelectedVideoId(newVideos[0].id);
-    }
-  }, [selectedVideoId]);
-
-  const handleRemoveVideo = useCallback((id: string) => {
-    setVideos((prev) => prev.filter((v) => v.id !== id));
-    if (selectedVideoId === id) {
-      setSelectedVideoId(null);
     }
   }, [selectedVideoId]);
 
