@@ -105,10 +105,6 @@ export function validateVersion(version: {
   
   if (!version.version) errors.push('Version must have a version string');
   
-  // Check for derived field desync
-  const actualCompleted = calculateCompletedTickets(version.tickets);
-  const actualTotal = calculateTotalTickets(version.tickets);
-  
   if (version.tickets.length > 0) {
     // All tickets should have valid statuses
     version.tickets.forEach((ticket, idx) => {
@@ -167,8 +163,6 @@ export function getNextTicket<T extends {
 }>(project: {
   versions: { version: string; tickets: T[] }[];
 }): { ticket: T; version: string } | null {
-  const priorityOrder = { high: 0, medium: 1, low: 2 };
-  
   for (const version of project.versions) {
     for (const ticket of version.tickets) {
       if (!ticket.completed && ticket.status !== TICKET_STATUS.DONE) {

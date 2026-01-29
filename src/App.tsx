@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { VideoPreviewGrid, VideoPlayer } from './components/VideoPreview';
 import { ImportDialog } from './components/ImportDialog';
 import { ExportDialog } from './components/ExportDialog';
@@ -12,8 +12,31 @@ function App() {
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('clipflow-theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+  
   // silenceSegments reserved for future timeline integration
   const [_silenceSegments] = useState<SilenceSegment[]>([]);
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('clipflow-theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('clipflow-theme', 'light');
+    }
+  }, [isDark]);
+
+  const toggleTheme = useCallback(() => {
+    setIsDark(prev => !prev);
+  }, []);
 
   const selectedVideo = videos.find((v) => v.id === selectedVideoId) || null;
 
@@ -38,6 +61,18 @@ function App() {
           <h1>Clip<span>Flow</span></h1>
         </div>
         <div className="header-actions">
+          <Button variant="ghost" size="sm" onClick={toggleTheme}>
+            {isDark ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="5"/>
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+            )}
+          </Button>
           <Button variant="outline" onClick={() => setShowImportDialog(true)}>
             + Import Videos
           </Button>
@@ -98,6 +133,8 @@ function App() {
           display: flex;
           flex-direction: column;
           background: var(--bg-primary);
+          color: var(--text-primary);
+          transition: background 0.2s, color 0.2s;
         }
 
         .header {
@@ -113,6 +150,7 @@ function App() {
         .header h1 {
           font-size: 1.25rem;
           font-weight: 600;
+          color: var(--text-primary);
         }
 
         .header h1 span {
@@ -122,6 +160,7 @@ function App() {
         .header-actions {
           display: flex;
           gap: 0.75rem;
+          align-items: center;
         }
 
         .main-content {
@@ -137,7 +176,6 @@ function App() {
           grid-template-columns: 280px 1fr 280px;
           gap: 1px;
           background: var(--bg-tertiary);
-          overflow: hidden;
         }
 
         .sidebar {
@@ -147,17 +185,12 @@ function App() {
           overflow: hidden;
         }
 
-        .right-sidebar {
-          border-left: 1px solid var(--bg-tertiary);
-        }
-
         .sidebar-header {
+          padding: 1rem;
+          border-bottom: 1px solid var(--bg-tertiary);
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 1rem;
-          border-bottom: 1px solid var(--bg-tertiary);
-          flex-shrink: 0;
         }
 
         .sidebar-header h2 {
@@ -172,9 +205,15 @@ function App() {
           background: var(--accent);
           color: white;
           font-size: 0.75rem;
-          font-weight: 500;
+          font-weight: 600;
           padding: 0.125rem 0.5rem;
           border-radius: 9999px;
+        }
+
+        .tools-content {
+          flex: 1;
+          padding: 1rem;
+          overflow-y: auto;
         }
 
         .preview-area {
@@ -182,129 +221,6 @@ function App() {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 1.5rem;
-        }
-
-        .video-grid-empty {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          color: var(--text-secondary);
-          padding: 2rem;
-          text-align: center;
-        }
-
-        .video-grid-empty .hint {
-          font-size: 0.8125rem;
-          margin-top: 0.5rem;
-          opacity: 0.7;
-        }
-
-        .timeline-placeholder {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          color: var(--text-secondary);
-          padding: 2rem;
-          text-align: center;
-        }
-
-        .timeline-placeholder .hint {
-          font-size: 0.8125rem;
-          margin-top: 0.5rem;
-          opacity: 0.7;
-        }
-
-        .tools-content {
-          flex: 1;
-          overflow-y: auto;
-          padding: 1rem;
-        }
-
-        .video-preview {
-          padding: 0.75rem 1rem;
-          cursor: pointer;
-          border-bottom: 1px solid var(--bg-tertiary);
-          transition: background 0.2s;
-        }
-
-        .video-preview:hover {
-          background: var(--bg-tertiary);
-        }
-
-        .video-preview.selected {
-          background: rgba(59, 130, 246, 0.1);
-          border-left: 2px solid var(--accent);
-        }
-
-        .video-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          margin-top: 0.5rem;
-        }
-
-        .video-name {
-          font-size: 0.8125rem;
-          font-weight: 500;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .video-status {
-          font-size: 0.6875rem;
-          color: var(--text-secondary);
-        }
-
-        .video-status.importing {
-          color: var(--warning);
-        }
-
-        .video-status.ready {
-          color: var(--success);
-        }
-
-        .video-status.processing {
-          color: var(--accent);
-        }
-
-        .video-status.done {
-          color: var(--success);
-        }
-
-        .video-player {
-          width: 100%;
-          max-width: 900px;
-          aspect-ratio: 16/9;
-          background: var(--bg-secondary);
-          border-radius: 8px;
-          overflow: hidden;
-        }
-
-        .video-player.empty {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          color: var(--text-secondary);
-        }
-
-        .video-player.empty svg {
-          width: 64px;
-          height: 64px;
-          margin-bottom: 1rem;
-          opacity: 0.5;
-        }
-
-        .video-player video {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
         }
       `}</style>
     </div>
