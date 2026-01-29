@@ -5,20 +5,48 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      project_name:
-        required: false
-        type: string
-        default: 'ClipFlow'
-      coverage_threshold:
-        required: false
-        type: number
-        default: 80
 
 jobs:
   gate:
-    uses: TendieShop/.github/.github/workflows/full-gate.yml@main
-    with:
-      project_name: ${{ inputs.project_name || 'ClipFlow' }}
-      coverage_threshold: ${{ inputs.coverage_threshold || 80 }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Test with Coverage
+        run: npm run test
+
+      - name: Check Coverage (80% threshold)
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            TOTAL=$(cat coverage/coverage-summary.json | jq -r '.total.statements.pct')
+            THRESHOLD=80
+            TOTAL_INT=$(echo "$TOTAL" | tr -d '%' | cut -d. -f1)
+            if [ "$TOTAL_INT" -lt "$THRESHOLD" ]; then
+              echo "Coverage $TOTAL% is below threshold $THRESHOLD%"
+              exit 1
+            fi
+            echo "Coverage $TOTAL% meets threshold"
+          fi
+
+      - name: Notify WhatsApp on Failure
+        if: failure()
+        run: |
+          curl -X POST "http://localhost:3232/api/message" \
+            -H "Content-Type: application/json" \
+            -d '{"action":"send","channel":"whatsapp","message":"🔴 Gate Failed: ClipFlow\n\nCheck GitHub Actions."}' 2>/dev/null || echo "WhatsApp notification skipped"
