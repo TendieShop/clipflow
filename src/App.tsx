@@ -1,12 +1,19 @@
 import { useState, useCallback } from 'react';
 import { VideoPreviewGrid, VideoPlayer } from './components/VideoPreview';
 import { ImportDialog } from './components/ImportDialog';
+import { ExportDialog } from './components/ExportDialog';
+import { SilenceDetectionPanel } from './components/SilenceDetectionPanel';
 import type { VideoFile } from './components/VideoPreview';
+import type { SilenceSegment } from './lib/video';
+import { Button } from './components/ui/button';
 
 function App() {
   const [videos, setVideos] = useState<VideoFile[]>([]);
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  // silenceSegments reserved for future timeline integration
+  const [_silenceSegments] = useState<SilenceSegment[]>([]);
 
   const selectedVideo = videos.find((v) => v.id === selectedVideoId) || null;
 
@@ -17,6 +24,11 @@ function App() {
     }
   }, [selectedVideoId]);
 
+  const handleSilenceDetected = useCallback((segments: SilenceSegment[]) => {
+    _silenceSegments; // Reserved for timeline integration
+    console.log('Silence detected:', segments);
+  }, []);
+
   const selectedVideoSrc = selectedVideo ? `file://${selectedVideo.path}` : null;
 
   return (
@@ -26,12 +38,12 @@ function App() {
           <h1>Clip<span>Flow</span></h1>
         </div>
         <div className="header-actions">
-          <button className="btn btn-secondary" onClick={() => setShowImportDialog(true)}>
+          <Button variant="outline" onClick={() => setShowImportDialog(true)}>
             + Import Videos
-          </button>
-          <button className="btn btn-primary" disabled={videos.length === 0}>
+          </Button>
+          <Button onClick={() => setShowExportDialog(true)} disabled={videos.length === 0}>
             Export
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -55,11 +67,13 @@ function App() {
 
           <aside className="sidebar right-sidebar">
             <div className="sidebar-header">
-              <h2>Timeline</h2>
+              <h2>Tools</h2>
             </div>
-            <div className="timeline-placeholder">
-              <p>Timeline editor coming soon</p>
-              <p className="hint">Drag videos here to reorder</p>
+            <div className="tools-content">
+              <SilenceDetectionPanel
+                videoPath={selectedVideo?.path || null}
+                onSilenceDetected={handleSilenceDetected}
+              />
             </div>
           </aside>
         </div>
@@ -68,6 +82,13 @@ function App() {
           isOpen={showImportDialog}
           onClose={() => setShowImportDialog(false)}
           onImport={handleImport}
+        />
+
+        <ExportDialog
+          isOpen={showExportDialog}
+          onClose={() => setShowExportDialog(false)}
+          videoPath={selectedVideo?.path || null}
+          videoName={selectedVideo?.name || ''}
         />
       </main>
 
@@ -196,6 +217,12 @@ function App() {
           font-size: 0.8125rem;
           margin-top: 0.5rem;
           opacity: 0.7;
+        }
+
+        .tools-content {
+          flex: 1;
+          overflow-y: auto;
+          padding: 1rem;
         }
 
         .video-preview {

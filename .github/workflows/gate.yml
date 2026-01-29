@@ -33,16 +33,38 @@ jobs:
 
       - name: Check Coverage (80% threshold)
         run: |
-          if [ -f coverage/coverage-summary.json ]; then
-            TOTAL=$(cat coverage/coverage-summary.json | jq -r '.total.statements.pct')
-            THRESHOLD=80
-            TOTAL_INT=$(echo "$TOTAL" | tr -d '%' | cut -d. -f1)
-            if [ "$TOTAL_INT" -lt "$THRESHOLD" ]; then
-              echo "Coverage $TOTAL% is below threshold $THRESHOLD%"
-              exit 1
-            fi
-            echo "Coverage $TOTAL% meets threshold"
+          if [ ! -f coverage/coverage-summary.json ]; then
+            echo "No coverage report found"
+            exit 1
           fi
+          
+          TOTAL=$(cat coverage/coverage-summary.json | jq -r '.total.statements.pct')
+          BRANCHES=$(cat coverage/coverage-summary.json | jq -r '.total.branches.pct')
+          FUNCTIONS=$(cat coverage/coverage-summary.json | jq -r '.total.functions.pct')
+          
+          echo "Coverage Report:"
+          echo "  Statements: $TOTAL%"
+          echo "  Branches:   $BRANCHES%"
+          echo "  Functions:  $FUNCTIONS%"
+          
+          FAILED=0
+          for metric in "$TOTAL" "$BRANCHES" "$FUNCTIONS"; do
+            INT=$(echo "$metric" | tr -d '%' | cut -d. -f1)
+            if [ "$INT" -lt 80 ]; then
+              echo "❌ Coverage $metric% is below 80%"
+              FAILED=1
+            fi
+          done
+          
+          if [ $FAILED -eq 1 ]; then
+            exit 1
+          fi
+          echo "✅ All coverage metrics meet 80% threshold"
+
+      - name: Check Design System (shadcn/ui)
+        run: |
+          if [ ! -f components.json ]; then echo "❌ No components.json (shadcn/ui not configured)"; exit 1; fi
+          echo "✅ Design system configured (shadcn/ui)"
 
       - name: Notify WhatsApp on Failure
         if: failure()
