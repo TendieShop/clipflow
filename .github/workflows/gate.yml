@@ -6,10 +6,19 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      project_name:
+        required: false
+        type: string
+        default: 'ClipFlow'
+      coverage_threshold:
+        required: false
+        type: number
+        default: 80
 
 jobs:
   gate:
     uses: TendieShop/.github/.github/workflows/full-gate.yml@main
     with:
-      project_name: ClipFlow
-      coverage_threshold: 80
+      project_name: ${{ inputs.project_name || 'ClipFlow' }}
+      coverage_threshold: ${{ inputs.coverage_threshold || 80 }}
