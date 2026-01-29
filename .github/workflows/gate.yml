@@ -28,5 +28,16 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Test
-        run: npm run test
+      - name: Test with Coverage
+        run: npm run test -- --coverage --coverage-threshold=80
+
+      - name: Notify WhatsApp on Failure
+        if: failure()
+        run: |
+          curl -X POST "http://localhost:3232/api/message" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "action": "send",
+              "channel": "whatsapp",
+              "message": "🔴 Gate Failed: ClipFlow\n\nLint, Build, or Test failed. Check: https://github.com/TendieShop/clipflow/actions"
+            }' 2>/dev/null || echo "WhatsApp notification failed"
