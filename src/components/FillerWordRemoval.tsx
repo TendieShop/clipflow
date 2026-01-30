@@ -1,375 +1,213 @@
-import { useState, useCallback, useMemo } from 'react';
+// Filler Word Removal - Simple pattern matching for common fillers
+import { useState, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 
-interface FillerWordRemovalProps {
-  transcriptionText: string;
-  onApplyChanges: (newText: string, removedWords: string[]) => void;
-}
-
-interface FillerWordPattern {
-  word: string;
-  regex: RegExp;
-  description: string;
-}
-
 // Common filler words to detect and remove
-const FILLER_WORDS: FillerWordPattern[] = [
+const COMMON_FILLERS = [
   { word: 'um', regex: /\bum\b/gi, description: '"um"' },
   { word: 'uh', regex: /\buh\b/gi, description: '"uh"' },
-  { word: 'like', regex: /\blike\b/gi, description: '"like" (as filler)' },
+  { word: 'like', regex: /\blike\b(?!\s+(?:you|me|to|that|this))\b/gi, description: '"like" (filler)' },
   { word: 'you know', regex: /you know/gi, description: '"you know"' },
   { word: 'I mean', regex: /I mean/gi, description: '"I mean"' },
   { word: 'sort of', regex: /\bsort of\b/gi, description: '"sort of"' },
   { word: 'kind of', regex: /\bkind of\b/gi, description: '"kind of"' },
   { word: 'basically', regex: /\bbasically\b/gi, description: '"basically"' },
   { word: 'actually', regex: /\bactually\b/gi, description: '"actually"' },
-  { word: 'right', regex: /\bright\b/gi, description: '"right" (as filler)' },
-  { word: 'so', regex: /\bso\b/gi, description: '"so" (sentence starter)' },
-  { word: 'well', regex: /\bwell\b/gi, description: '"well" (filler)' },
+  { word: 'right', regex: /\bright\b(?!\s*\?)/gi, description: '"right" (not question)' },
+  { word: 'so', regex: /\bso\b(?=\s*[A-Z])/g, description: '"so" (sentence starter)' },
+  { word: 'well', regex: /\bwell\b(?=\s*[A-Z])/g, description: '"well" (filler)' },
 ];
+
+interface FillerWordRemovalProps {
+  transcriptionText: string;
+  onApplyChanges: (newText: string, removedCount: number) => void;
+}
 
 export function FillerWordRemoval({
   transcriptionText,
   onApplyChanges,
 }: FillerWordRemovalProps) {
-  const [customWords, setCustomWords] = useState<string>('');
   const [selectedFillers, setSelectedFillers] = useState<Set<string>>(
     new Set(['um', 'uh', 'like', 'you know', 'I mean'])
   );
   const [previewMode, setPreviewMode] = useState(false);
-  const [previewText, setPreviewText] = useState('');
-  const [removedCounts, setRemovedCounts] = useState<Record<string, number>>({});
 
-  // Calculate removal statistics
-  const stats = useMemo(() => {
-    const counts: Record<string, number> = {};
-    let totalRemoved = 0;
-
-    const activePatterns = [
-      ...FILLER_WORDS.filter((f) => selectedFillers.has(f.word)),
-      ...customWords
-        .split(',')
-        .map((w) => w.trim())
-        .filter(Boolean)
-        .map((w) => ({
-          word: w,
-          regex: new RegExp(`\\b${w}\\b`, 'gi'),
-          description: `"${w}"`,
-        })),
-    ];
-
-    activePatterns.forEach((pattern) => {
-      const matches = transcriptionText.match(pattern.regex);
-      const count = matches ? matches.length : 0;
-      counts[pattern.word] = count;
-      totalRemoved += count;
-    });
-
-    return { counts, totalRemoved, activePatterns };
-  }, [transcriptionText, selectedFillers, customWords]);
-
-  const handleToggleFiller = useCallback((word: string) => {
-    setSelectedFillers((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(word)) {
-        newSet.delete(word);
+  const toggleFiller = useCallback((word: string) => {
+    setSelectedFillers(prev => {
+      const next = new Set(prev);
+      if (next.has(word)) {
+        next.delete(word);
       } else {
-        newSet.add(word);
+        next.add(word);
       }
-      return newSet;
+      return next;
     });
   }, []);
 
-  const handlePreview = useCallback(() => {
-    let text = transcriptionText;
-    const allPatterns = [
-      ...FILLER_WORDS.filter((f) => selectedFillers.has(f.word)),
-      ...customWords
-        .split(',')
-        .map((w) => w.trim())
-        .filter(Boolean)
-        .map((w) => ({
-          word: w,
-          regex: new RegExp(`\\b${w}\\b`, 'gi'),
-          description: `"${w}"`,
-        })),
-    ];
+  const countFillers = useCallback((text: string, fillers: Set<string>): number => {
+    let count = 0;
+    for (const filler of fillers) {
+      const pattern = COMMON_FILLERS.find(f => f.word === filler);
+      if (pattern) {
+        const matches = text.match(pattern.regex);
+        count += matches ? matches.length : 0;
+      }
+    }
+    return count;
+  }, []);
 
-    const counts: Record<string, number> = {};
-    allPatterns.forEach((pattern) => {
-      text = text.replace(pattern.regex, () => {
-        counts[pattern.word] = (counts[pattern.word] || 0) + 1;
-        return '[_removed_]';
-      });
-    });
-
-    // Clean up multiple removed markers
-    text = text.replace(/\[\]_removed_\[\]_removed_+/g, '[_removed_]');
-    text = text.replace(/\[\]_removed_\s*/g, '');
-    text = text.replace(/_removed_/g, '');
-
-    setRemovedCounts(counts);
-    setPreviewText(text);
-    setPreviewMode(true);
-  }, [transcriptionText, selectedFillers, customWords]);
+  const removeFillers = useCallback((text: string, fillers: Set<string>): string => {
+    let result = text;
+    for (const filler of fillers) {
+      const pattern = COMMON_FILLERS.find(f => f.word === filler);
+      if (pattern) {
+        result = result.replace(pattern.regex, '');
+      }
+    }
+    // Clean up extra spaces
+    return result.replace(/\s+/g, ' ').trim();
+  }, []);
 
   const handleApply = useCallback(() => {
-    let text = transcriptionText;
-    const removedWords: string[] = [];
+    const cleanedText = removeFillers(transcriptionText, selectedFillers);
+    const removedCount = countFillers(transcriptionText, selectedFillers);
+    onApplyChanges(cleanedText, removedCount);
+  }, [transcriptionText, selectedFillers, removeFillers, countFillers, onApplyChanges]);
 
-    const allPatterns = [
-      ...FILLER_WORDS.filter((f) => selectedFillers.has(f.word)),
-      ...customWords
-        .split(',')
-        .map((w) => w.trim())
-        .filter(Boolean)
-        .map((w) => ({
-          word: w,
-          regex: new RegExp(`\\b${w}\\b`, 'gi'),
-          description: `"${w}"`,
-        })),
-    ];
-
-    allPatterns.forEach((pattern) => {
-      text = text.replace(pattern.regex, () => {
-        removedWords.push(pattern.word);
-        return '';
-      });
-    });
-
-    onApplyChanges(text.trim(), removedWords);
-    setPreviewMode(false);
-  }, [transcriptionText, selectedFillers, customWords, onApplyChanges]);
-
-  const handleReset = useCallback(() => {
-    setPreviewMode(false);
-    setPreviewText('');
-    setRemovedCounts({});
-  }, []);
+  const previewText = previewMode ? removeFillers(transcriptionText, selectedFillers) : transcriptionText;
+  const removedCount = countFillers(transcriptionText, selectedFillers);
 
   return (
-    <div className="filler-removal-panel">
+    <div className="filler-removal">
       <Card>
         <CardHeader>
-          <CardTitle>Filler Word Removal</CardTitle>
-          <CardDescription>
-            Remove common filler words (um, uh, like, you know, etc.) from transcript
-          </CardDescription>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>Filler Word Removal</CardTitle>
+              <CardDescription>
+                Remove common filler words from your transcript
+              </CardDescription>
+            </div>
+            <div className="count-badge">
+              {removedCount} filler{removedCount !== 1 ? 's' : ''} found
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="controls">
-            {/* Default filler words */}
-            <div className="filler-grid">
-              {FILLER_WORDS.map((filler) => (
-                <button
-                  key={filler.word}
-                  className={`filler-toggle ${selectedFillers.has(filler.word) ? 'selected' : ''}`}
-                  onClick={() => handleToggleFiller(filler.word)}
-                  type="button"
-                >
-                  <span className="filler-word">{filler.word}</span>
-                  <span className="filler-count">
-                    {stats.counts[filler.word] || 0}
-                  </span>
-                </button>
-              ))}
-            </div>
+          {/* Filler toggles */}
+          <div className="fillers-grid">
+            {COMMON_FILLERS.map(filler => (
+              <label key={filler.word} className="filler-toggle">
+                <input
+                  type="checkbox"
+                  checked={selectedFillers.has(filler.word)}
+                  onChange={() => toggleFiller(filler.word)}
+                />
+                <span className="filler-name">{filler.description}</span>
+              </label>
+            ))}
+          </div>
 
-            {/* Custom words */}
-            <div className="custom-words">
-              <label>Custom words (comma-separated)</label>
-              <input
-                type="text"
-                value={customWords}
-                onChange={(e) => setCustomWords(e.target.value)}
-                placeholder="actually, basically, literally"
-              />
-            </div>
-
-            {/* Preview/Apply buttons */}
-            <div className="action-buttons">
+          {/* Preview */}
+          <div className="preview-section">
+            <div className="preview-header">
+              <label className="preview-toggle">
+                <input
+                  type="checkbox"
+                  checked={previewMode}
+                  onChange={(e) => setPreviewMode(e.target.checked)}
+                />
+                <span>Show preview (without fillers)</span>
+              </label>
               <Button
-                variant="outline"
-                onClick={handlePreview}
-                disabled={!transcriptionText}
-              >
-                Preview Changes
-              </Button>
-              <Button
+                variant="default"
+                size="sm"
                 onClick={handleApply}
-                disabled={!previewMode || stats.totalRemoved === 0}
+                disabled={removedCount === 0 || previewMode}
               >
-                Apply Removal ({stats.totalRemoved} words)
+                Apply Changes
               </Button>
-              {previewMode && (
-                <Button variant="ghost" onClick={handleReset}>
-                  Cancel
-                </Button>
-              )}
+            </div>
+            <div className="preview-text">
+              {previewText || 'No transcript available. Generate a transcript first.'}
             </div>
           </div>
 
-          {/* Preview mode */}
-          {previewMode && (
-            <div className="preview-section">
-              <div className="preview-header">
-                <h4>Preview ({stats.totalRemoved} words will be removed)</h4>
-              </div>
-              <div className="preview-stats">
-                {Object.entries(removedCounts)
-                  .filter(([, count]) => count > 0)
-                  .map(([word, count]) => (
-                    <span key={word} className="stat-badge">
-                      {word}: {count}
-                    </span>
-                  ))}
-              </div>
-              <div className="preview-text">
-                {previewText || transcriptionText}
-              </div>
-            </div>
-          )}
-
-          {/* Empty state */}
-          {!transcriptionText && (
-            <div className="empty-state">
-              <p>Transcribe a video first to remove filler words</p>
-            </div>
-          )}
+          <style>{`
+            .fillers-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+              gap: 0.5rem;
+              margin-bottom: 1rem;
+            }
+            
+            .filler-toggle {
+              display: flex;
+              align-items: center;
+              gap: 0.5rem;
+              padding: 0.5rem;
+              background: var(--bg-secondary);
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 0.875rem;
+            }
+            
+            .filler-toggle:hover {
+              background: var(--bg-tertiary);
+            }
+            
+            .filler-toggle input {
+              width: auto;
+            }
+            
+            .count-badge {
+              padding: 0.25rem 0.75rem;
+              background: var(--accent);
+              color: white;
+              border-radius: 9999px;
+              font-size: 0.75rem;
+              font-weight: 500;
+            }
+            
+            .preview-section {
+              border-top: 1px solid var(--border);
+              padding-top: 1rem;
+              margin-top: 1rem;
+            }
+            
+            .preview-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 0.75rem;
+            }
+            
+            .preview-toggle {
+              display: flex;
+              align-items: center;
+              gap: 0.5rem;
+              font-size: 0.875rem;
+              cursor: pointer;
+            }
+            
+            .preview-toggle input {
+              width: auto;
+            }
+            
+            .preview-text {
+              padding: 1rem;
+              background: var(--bg-primary);
+              border-radius: 8px;
+              font-size: 0.875rem;
+              line-height: 1.6;
+              max-height: 200px;
+              overflow-y: auto;
+              white-space: pre-wrap;
+            }
+          `}</style>
         </CardContent>
       </Card>
-
-      <style>{`
-        .filler-removal-panel {
-          width: 100%;
-        }
-
-        .controls {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-        }
-
-        .filler-grid {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-        }
-
-        .filler-toggle {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.5rem 0.75rem;
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          background: var(--background);
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .filler-toggle:hover {
-          border-color: var(--accent);
-        }
-
-        .filler-toggle.selected {
-          background: rgba(59, 130, 246, 0.1);
-          border-color: var(--accent);
-        }
-
-        .filler-word {
-          font-size: 0.875rem;
-          font-weight: 500;
-        }
-
-        .filler-count {
-          font-size: 0.75rem;
-          padding: 0.125rem 0.375rem;
-          background: var(--bg-secondary);
-          border-radius: 9999px;
-          color: var(--text-secondary);
-        }
-
-        .filler-toggle.selected .filler-count {
-          background: var(--accent);
-          color: white;
-        }
-
-        .custom-words {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .custom-words label {
-          font-size: 0.875rem;
-          font-weight: 500;
-        }
-
-        .custom-words input {
-          padding: 0.5rem;
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          background: var(--background);
-          color: var(--foreground);
-          font-size: 0.875rem;
-        }
-
-        .action-buttons {
-          display: flex;
-          gap: 0.75rem;
-        }
-
-        .preview-section {
-          margin-top: 1rem;
-          padding: 1rem;
-          background: var(--bg-secondary);
-          border-radius: 8px;
-        }
-
-        .preview-header {
-          margin-bottom: 0.75rem;
-        }
-
-        .preview-header h4 {
-          font-size: 0.875rem;
-          font-weight: 500;
-        }
-
-        .preview-stats {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-          margin-bottom: 0.75rem;
-        }
-
-        .stat-badge {
-          font-size: 0.75rem;
-          padding: 0.25rem 0.5rem;
-          background: rgba(239, 68, 68, 0.1);
-          color: #ef4444;
-          border-radius: 4px;
-        }
-
-        .preview-text {
-          font-size: 0.875rem;
-          line-height: 1.6;
-          white-space: pre-wrap;
-          max-height: 300px;
-          overflow-y: auto;
-          padding: 0.75rem;
-          background: var(--background);
-          border-radius: 6px;
-        }
-
-        .empty-state {
-          padding: 2rem;
-          text-align: center;
-          color: var(--text-secondary);
-          font-size: 0.875rem;
-        }
-      `}</style>
     </div>
   );
 }
