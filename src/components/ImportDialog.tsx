@@ -1,6 +1,14 @@
 import { useState, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { Button } from './ui/button';
+
+// Type definition for Tauri window
+declare global {
+  interface Window {
+    __TAURI__?: {
+      invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+    };
+  }
+}
 
 export interface VideoFile {
   id: string;
@@ -26,6 +34,19 @@ function isValidVideoFormat(filename: string): boolean {
   return SUPPORTED_FORMATS.includes(ext);
 }
 
+// Check if running in Tauri
+function isTauri(): boolean {
+  return typeof window !== 'undefined' && !!(window as any).__TAURI__;
+}
+
+// Safe invoke that works in both browser and Tauri
+async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (!isTauri()) {
+    throw new Error('Tauri API not available');
+  }
+  return (window as any).__TAURI__.invoke(cmd, args);
+}
+
 export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,8 +56,15 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
     setError(null);
 
     try {
+      // Check if running in Tauri - feature only works in app
+      if (!isTauri()) {
+        setError('Import is only available in the ClipFlow app. Please run the Tauri app.');
+        setIsLoading(false);
+        return;
+      }
+
       // Use Tauri dialog API to get real file paths
-      const paths: string[] = await invoke('open_file_dialog', {
+      const paths: string[] = await tauriInvoke('open_file_dialog', {
         multiple: true,
       });
 
