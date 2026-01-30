@@ -20,8 +20,9 @@ export interface VideoFile {
 export interface AppSettings {
   theme: 'dark' | 'light' | 'system';
   autoSaveInterval: number;
-  ffmpegQuality: 'high' | 'medium' | 'low';
-  whisperModel: string;
+  showAdvancedOptions: boolean;
+  ffmpegPath: string;
+  whisperModel: 'tiny' | 'base' | 'small' | 'medium' | 'large';
 }
 
 const STORAGE_KEY = 'clipflow-projects';
@@ -40,7 +41,8 @@ const getAppVersion = (): string => {
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
   autoSaveInterval: 30,
-  ffmpegQuality: 'medium',
+  showAdvancedOptions: false,
+  ffmpegPath: 'ffmpeg',
   whisperModel: 'base',
 };
 
