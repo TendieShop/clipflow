@@ -147,14 +147,17 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           position: fixed;
           inset: 0;
           background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(4px);
           display: flex;
           align-items: center;
           justify-content: center;
           z-index: 1000;
+          animation: fadeIn 0.2s ease;
         }
 
         .settings-dialog {
           background: var(--bg-secondary);
+          border: 1px solid var(--border-subtle);
           border-radius: 12px;
           width: 90%;
           max-width: 500px;
@@ -162,7 +165,8 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           overflow: hidden;
           display: flex;
           flex-direction: column;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+          box-shadow: var(--shadow-high);
+          animation: scaleIn 0.2s ease;
         }
 
         .settings-header {
@@ -171,6 +175,16 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           align-items: center;
           padding: 1rem 1.5rem;
           border-bottom: 1px solid var(--bg-tertiary);
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes scaleIn {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
         }
 
         .settings-header h2 {
