@@ -201,17 +201,22 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
             position: fixed;
             inset: 0;
             background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 1000;
+            animation: fadeIn 0.2s ease;
           }
 
           .dialog {
             background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
             border-radius: 12px;
             width: 100%;
             max-width: 480px;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5);
+            animation: scaleIn 0.2s ease;
           }
 
           .dialog-header {
@@ -400,6 +405,16 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
           .btn-secondary:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+          }
+
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+
+          @keyframes scaleIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
           }
         `}</style>
       </div>
