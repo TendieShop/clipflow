@@ -7,6 +7,8 @@ export interface VideoFile {
   duration: number;
   thumbnail?: string;
   status: 'importing' | 'ready' | 'processing' | 'done';
+  size?: number;
+  format?: string;
 }
 
 interface ImportDialogProps {
@@ -15,12 +17,18 @@ interface ImportDialogProps {
   onImport: (videos: VideoFile[]) => void;
 }
 
+const SUPPORTED_FORMATS = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v', 'MP4', 'MOV', 'AVI', 'MKV', 'WEBM', 'M4V'];
+
+function isValidVideoFormat(filename: string): boolean {
+  const ext = filename.split('.').pop() || '';
+  return SUPPORTED_FORMATS.includes(ext);
+}
+
 export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const supportedFormats = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v'];
 
   const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -30,21 +38,52 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
     }
 
     setError(null);
+    setImportProgress({ current: 0, total: files.length });
+    const filesArray = Array.from(files);
+    const newVideos: VideoFile[] = [];
 
     try {
-      const newVideos: VideoFile[] = [];
+      for (let i = 0; i < filesArray.length; i++) {
+        const file = filesArray[i];
+        setImportProgress({ current: i + 1, total: filesArray.length });
 
-      for (const file of Array.from(files)) {
-        // In Tauri, use file.path. In web, use file.name or file.webkitRelativePath
-        const filePath = (file as any).path || file.webkitRelativePath || file.name;
+        const fileName = file.name || 'Unknown';
         
+        if (!isValidVideoFormat(fileName)) {
+          console.warn(`[ImportDialog] Skipping unsupported format: ${fileName}`);
+          continue;
+        }
+
+        let filePath: string;
+        if ((file as any).path) {
+          filePath = (file as any).path;
+        } else if (file.webkitRelativePath) {
+          filePath = file.webkitRelativePath;
+        } else {
+          filePath = file.name;
+        }
+
+        console.log(`[ImportDialog] Processing file: ${fileName}`);
+
         newVideos.push({
           id: crypto.randomUUID(),
-          name: file.name,
+          name: fileName,
           path: filePath,
           duration: 0,
+          size: file.size,
+          format: fileName.split('.').pop()?.toLowerCase() || 'unknown',
           status: 'ready'
         });
+      }
+
+      if (newVideos.length === 0) {
+        setError('No valid video files found. Supported formats: MP4, MOV, AVI, MKV, WebM, M4V');
+        setImportProgress(null);
+        setIsLoading(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
       }
 
       onImport(newVideos);
@@ -54,7 +93,7 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
       setError(err instanceof Error ? err.message : 'Failed to import videos');
     } finally {
       setIsLoading(false);
-      // Reset file input
+      setImportProgress(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -65,8 +104,6 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
     if (isLoading) return;
     setIsLoading(true);
     setError(null);
-    
-    // Trigger hidden file input
     fileInputRef.current?.click();
   }, [isLoading]);
 
@@ -74,14 +111,14 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
 
   return (
     <>
-      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
-        accept={supportedFormats.map(f => `.${f}`).join(',')}
+        accept={SUPPORTED_FORMATS.map(f => `.${f}`).join(',')}
         multiple
         onChange={handleFileSelect}
         style={{ display: 'none' }}
+        data-testid="file-input"
       />
 
       <div className="dialog-overlay" onClick={onClose}>
@@ -98,10 +135,25 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
               </div>
             )}
 
+            {importProgress && (
+              <div className="import-progress">
+                <div className="progress-text">
+                  Processing {importProgress.current} of {importProgress.total} files...
+                </div>
+                <div className="progress-bar">
+                  <div 
+                    className="progress-fill" 
+                    style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }} 
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="import-options">
               <div 
                 className={`import-option ${isLoading ? 'disabled' : ''}`}
                 onClick={isLoading ? undefined : handleOptionClick}
+                data-testid="select-files-option"
               >
                 <div className="option-icon">
                   {isLoading ? (
@@ -120,7 +172,8 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
             </div>
 
             <div className="supported-formats">
-              <p>Supported formats: {supportedFormats.join(', ').toUpperCase()}</p>
+              <p>Supported formats: MP4, MOV, AVI, MKV, WebM, M4V</p>
+              <p className="max-size">Maximum file size: 10 GB</p>
             </div>
           </div>
 
@@ -129,6 +182,7 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
               className="btn btn-secondary"
               onClick={onClose}
               disabled={isLoading}
+              data-testid="cancel-button"
             >
               Cancel
             </button>
@@ -194,6 +248,32 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
             border-radius: 8px;
             margin-bottom: 1rem;
             font-size: 0.875rem;
+          }
+
+          .import-progress {
+            background: var(--bg-tertiary);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+          }
+
+          .progress-text {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+          }
+
+          .progress-bar {
+            height: 6px;
+            background: var(--bg-secondary);
+            border-radius: 3px;
+            overflow: hidden;
+          }
+
+          .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.3s ease;
           }
 
           .import-options {
@@ -276,6 +356,11 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
             font-size: 0.75rem;
             color: var(--text-secondary);
             margin: 0;
+          }
+
+          .max-size {
+            margin-top: 0.25rem;
+            opacity: 0.7;
           }
 
           .dialog-footer {

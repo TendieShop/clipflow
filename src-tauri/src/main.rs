@@ -3,7 +3,23 @@
 use std::process::{Command, Stdio};
 use serde::{Serialize, Deserialize};
 use tauri::Manager;
-use tokio::fs;
+use std::path::PathBuf;
+use std::fs;
+
+/// Escape a file path for shell commands
+/// Wraps in quotes if it contains spaces or special characters
+fn escape_path(path: &str) -> String {
+    let path_buf = PathBuf::from(path);
+    let path_str = path_buf.to_string_lossy().into_owned();
+    
+    // Check if path needs escaping
+    if path_str.contains(' ') || path_str.contains('\'') || path_str.contains('&') {
+        // Wrap in single quotes for shell
+        format!("'{}'", path_str.replace("'", "'\\''"))
+    } else {
+        path_str
+    }
+}
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -12,12 +28,14 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 async fn get_video_duration(file_path: &str) -> Result<f64, String> {
+    let escaped = escape_path(file_path);
+    
     let output = Command::new("ffprobe")
         .args(&[
             "-v", "error",
             "-show_entries", "format=duration",
             "-of", "default=noprint_wrappers=1:nokey=1",
-            file_path,
+            &escaped,
         ])
         .output();
 
@@ -32,22 +50,25 @@ async fn get_video_duration(file_path: &str) -> Result<f64, String> {
                 }
             } else {
                 let error = String::from_utf8_lossy(&output.stderr);
-                Err(format!("ffprobe failed: {}", error))
+                Err(format!("ffprobe failed: {}. Path: {}", error, file_path))
             }
         }
-        Err(e) => Err(format!("Failed to run ffprobe: {}", e)),
+        Err(e) => Err(format!("Failed to run ffprobe: {}. Path: {}", e, file_path)),
     }
 }
 
 #[tauri::command]
 async fn trim_video(input_path: &str, output_path: &str, start_time: f64, end_time: f64) -> Result<bool, String> {
+    let escaped_input = escape_path(input_path);
+    let escaped_output = escape_path(output_path);
+    
     let status = Command::new("ffmpeg")
         .args(&[
-            "-i", input_path,
+            "-i", &escaped_input,
             "-ss", &format!("{}", start_time),
             "-to", &format!("{}", end_time),
             "-c", "copy",
-            output_path,
+            &escaped_output,
             "-y",
         ])
         .status();
@@ -64,26 +85,20 @@ async fn trim_video(input_path: &str, output_path: &str, start_time: f64, end_ti
     }
 }
 
+#[derive(Deserialize)]
+struct CutSegment {
+    keep_start: f64,
+    keep_end: f64,
+}
+
 #[tauri::command]
 async fn cut_video_remove(input_path: &str, output_path: &str, segments: Vec<CutSegment>) -> Result<bool, String> {
-    // Build FFmpeg complex filter for removing segments
-    // For simplicity, we'll concatenate kept parts
-
-    let mut args = vec!["-i", input_path, "-filter_complex", ""];
-
-    // Build the filter string: [0:v]trim=0:10[v0];[v0][1:v]concat[outv]
-    let filter_parts: Vec<String> = segments.iter()
-        .enumerate()
-        .map(|(i, seg)| {
-            format!("[0:v]trim=start={},end={},setpts=PTS-STARTPTS[v{}];[0:a]atrim=start={},end={},asetpts=PTS-STARTPTS[a{}]",
-                seg.keep_start, seg.keep_end, i, seg.keep_start, seg.keep_end, i)
-        })
-        .collect();
-
-    // For now, do a simple copy if no segments
+    let escaped_input = escape_path(input_path);
+    let escaped_output = escape_path(output_path);
+    
     if segments.is_empty() {
         let status = Command::new("ffmpeg")
-            .args(&[ "-i", input_path, "-c", "copy", output_path, "-y"])
+            .args(&["-i", &escaped_input, "-c", "copy", &escaped_output, "-y"])
             .status();
         return match status {
             Ok(status) => Ok(status.success()),
@@ -94,20 +109,17 @@ async fn cut_video_remove(input_path: &str, output_path: &str, segments: Vec<Cut
     Err("Complex cut not yet implemented".to_string())
 }
 
-#[derive(Deserialize)]
-struct CutSegment {
-    keep_start: f64,
-    keep_end: f64,
-}
-
 #[tauri::command]
 async fn extract_audio(input_path: &str, output_path: &str, format: &str) -> Result<bool, String> {
+    let escaped_input = escape_path(input_path);
+    let escaped_output = escape_path(output_path);
+    
     let status = Command::new("ffmpeg")
         .args(&[
-            "-i", input_path,
+            "-i", &escaped_input,
             "-vn",
             "-acodec", "pcm_s16le",
-            output_path,
+            &escaped_output,
             "-y",
         ])
         .status();
@@ -126,12 +138,11 @@ async fn extract_audio(input_path: &str, output_path: &str, format: &str) -> Res
 
 #[tauri::command]
 async fn analyze_silence(file_path: &str, threshold_db: f64) -> Result<Vec<SilenceSegment>, String> {
-    // Use ffmpeg to detect silence in audio
-    // threshold_db: silence threshold in dB (e.g., -50 for silence)
-
+    let escaped = escape_path(file_path);
+    
     let output = Command::new("ffmpeg")
         .args(&[
-            "-i", file_path,
+            "-i", &escaped,
             "-af", &format!("silencedetect=noise={}dB:d=0.5", threshold_db),
             "-f", "null",
             "-",
@@ -148,9 +159,8 @@ async fn analyze_silence(file_path: &str, threshold_db: f64) -> Result<Vec<Silen
                 if line.contains("silence_start:") {
                     if let Some(start) = line.split("silence_start: ").nth(1) {
                         if let Ok(s) = start.trim().parse::<f64>() {
-                            // Find corresponding end
                             for end_line in stderr.lines() {
-                                if end_line.contains("silence_end:") && end_line.contains(&format!("silence_start: {}", s)) == false {
+                                if end_line.contains("silence_end:") && !end_line.contains(&format!("silence_start: {}", s)) {
                                     if let Some(end) = end_line.split("silence_end: ").nth(1) {
                                         if let Ok(e) = end.split_once(' ') {
                                             if let Ok(end_val) = e.0.trim().parse::<f64>() {
@@ -185,6 +195,9 @@ struct SilenceSegment {
 
 #[tauri::command]
 async fn export_video(input_path: &str, output_path: &str, quality: &str) -> Result<bool, String> {
+    let escaped_input = escape_path(input_path);
+    let escaped_output = escape_path(output_path);
+    
     let codec_args = match quality {
         "high" => vec!["-c:v", "libx264", "-crf", "18"],
         "medium" => vec!["-c:v", "libx264", "-crf", "23"],
@@ -192,16 +205,14 @@ async fn export_video(input_path: &str, output_path: &str, quality: &str) -> Res
         _ => vec!["-c:v", "libx264", "-crf", "23"],
     };
 
-    let status = Command::new("ffmpeg")
-        .args(&[
-            "-i", input_path,
-        ].iter()
-            .chain(codec_args.iter())
-            .chain(&["-preset", "medium", output_path, "-y"])
-            .cloned()
-            .collect::<Vec<&str>>()
-        )
-        .status();
+    let args: Vec<&str> = vec!["-i", &escaped_input]
+        .iter()
+        .chain(codec_args.iter())
+        .chain(&["-preset", "medium", &escaped_output, "-y"])
+        .cloned()
+        .collect();
+
+    let status = Command::new("ffmpeg").args(&args).status();
 
     match status {
         Ok(status) => {
@@ -216,17 +227,16 @@ async fn export_video(input_path: &str, output_path: &str, quality: &str) -> Res
 }
 
 /// Whisper Transcription - Local AI (no cloud API)
-/// Uses OpenAI's Whisper model installed locally
 
 #[tauri::command]
 async fn transcribe_audio(input_path: &str, model: &str) -> Result<TranscriptionResult, String> {
-    // Extract audio to temp WAV file for Whisper
+    let escaped_input = escape_path(input_path);
     let temp_wav = "/tmp/clipflow_audio.wav";
     
     // Extract audio using ffmpeg
     let extract_status = Command::new("ffmpeg")
         .args(&[
-            "-i", input_path,
+            "-i", &escaped_input,
             "-vn",
             "-acodec", "pcm_s16le",
             "-ar", "16000",
@@ -259,7 +269,6 @@ async fn transcribe_audio(input_path: &str, model: &str) -> Result<Transcription
     match output {
         Ok(output) => {
             if output.status.success() {
-                // Parse the JSON output
                 let json_path = temp_wav.replace(".wav", ".json");
                 match std::fs::read_to_string(&json_path) {
                     Ok(json_content) => {
@@ -300,7 +309,6 @@ async fn transcribe_audio(input_path: &str, model: &str) -> Result<Transcription
 
 #[tauri::command]
 async fn get_available_whisper_models() -> Result<Vec<WhisperModel>, String> {
-    // Return available Whisper models with their requirements
     Ok(vec![
         WhisperModel {
             name: "tiny".to_string(),
