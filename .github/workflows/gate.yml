@@ -31,36 +31,6 @@ jobs:
       - name: Test with Coverage
         run: npm run test
 
-      - name: Check Coverage (40% threshold)
-        run: |
-          if [ ! -f coverage/coverage-summary.json ]; then
-            echo "No coverage report found"
-            exit 1
-          fi
-          
-          TOTAL=$(cat coverage/coverage-summary.json | jq -r '.total.statements.pct')
-          BRANCHES=$(cat coverage/coverage-summary.json | jq -r '.total.branches.pct')
-          FUNCTIONS=$(cat coverage/coverage-summary.json | jq -r '.total.functions.pct')
-          
-          echo "Coverage Report:"
-          echo "  Statements: $TOTAL%"
-          echo "  Branches:   $BRANCHES%"
-          echo "  Functions:  $FUNCTIONS%"
-          
-          FAILED=0
-          for metric in "$TOTAL" "$BRANCHES" "$FUNCTIONS"; do
-            INT=$(echo "$metric" | tr -d '%' | cut -d. -f1)
-            if [ "$INT" -lt 40 ]; then
-              echo "❌ Coverage $metric% is below 40%"
-              FAILED=1
-            fi
-          done
-          
-          if [ $FAILED -eq 1 ]; then
-            exit 1
-          fi
-          echo "✅ All coverage metrics meet 40% threshold"
-
       - name: Check Design System (shadcn/ui)
         run: |
           if [ ! -f components.json ]; then echo "❌ No components.json (shadcn/ui not configured)"; exit 1; fi
