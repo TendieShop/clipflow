@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { logExport, logError } from './logger';
 
 export interface SilenceSegment {
   start: number;
@@ -16,7 +17,7 @@ export async function getVideoDuration(filePath: string): Promise<number> {
     const duration = await invoke<number>("get_video_duration", { filePath });
     return duration;
   } catch (error) {
-    console.error("Failed to get video duration:", error);
+    logError('video.get_duration_failed', { path: filePath, error: String(error) });
     throw error;
   }
 }
@@ -36,7 +37,7 @@ export async function trimVideo(
     });
     return result;
   } catch (error) {
-    console.error("Failed to trim video:", error);
+    logError('video.trim_failed', { inputPath, outputPath, error: String(error) });
     throw error;
   }
 }
@@ -53,7 +54,7 @@ export async function extractAudio(
     });
     return result;
   } catch (error) {
-    console.error("Failed to extract audio:", error);
+    logError('video.extract_audio_failed', { inputPath, error: String(error) });
     throw error;
   }
 }
@@ -69,7 +70,7 @@ export async function analyzeSilence(
     });
     return segments;
   } catch (error) {
-    console.error("Failed to analyze silence:", error);
+    logError('video.silence_analysis_failed', { filePath, error: String(error) });
     throw error;
   }
 }
@@ -80,14 +81,17 @@ export async function exportVideo(
   quality: "high" | "medium" | "low" = "medium"
 ): Promise<boolean> {
   try {
+    logExport.started('mp4', quality);
+    const startTime = Date.now();
     const result = await invoke<boolean>("export_video", {
       inputPath,
       outputPath,
       quality,
     });
+    logExport.completed(outputPath, Date.now() - startTime);
     return result;
   } catch (error) {
-    console.error("Failed to export video:", error);
+    logExport.failed(String(error));
     throw error;
   }
 }

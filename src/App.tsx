@@ -9,6 +9,7 @@ import { useProject } from './lib/project';
 import type { VideoFile } from './components/VideoPreview';
 import type { SilenceSegment } from './lib/video';
 import { Button } from './components/ui/button';
+import { info } from './lib/logger';
 
 function App() {
   const {
@@ -63,7 +64,7 @@ function App() {
 
   const handleSilenceDetected = useCallback((segments: SilenceSegment[]) => {
     _silenceSegments; // Reserved for timeline integration
-    console.log('[App] Silence detected:', segments);
+    info('silence.detected', { count: segments.length });
   }, []);
 
   const handleSave = useCallback((name: string) => {
