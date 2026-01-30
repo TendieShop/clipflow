@@ -11,6 +11,16 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:5174',
     trace: 'on-first-retry',
+    // Screenshot testing configuration
+    screenshot: 'only-on-failure',
+  },
+
+  expect: {
+    // Configure screenshot comparison thresholds
+    toHaveScreenshot: {
+      maxDiffPixels: 100,
+      threshold: 0.2,
+    },
   },
 
   projects: [
