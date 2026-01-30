@@ -2,66 +2,70 @@ import { test, expect } from '@playwright/test';
 
 test.describe('ClipFlow Visual Regression Tests', () => {
   test.beforeEach(async ({ page }) => {
-    // Start with a fresh page for each test
     await page.goto('/');
-    // Wait for the app to fully load
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(500);
   });
 
-  test.describe('Empty State - Homepage', () => {
-    test('homepage with no video should match baseline', async ({ page }) => {
-      // Homepage loads with empty state (no videos imported)
-      await expect(page.locator('.app')).toHaveScreenshot('homepage-empty.png');
+  test.describe('Homepage', () => {
+    test('homepage empty state', async ({ page }) => {
+      await expect(page.locator('.app, [data-testid="app"]').first()).toHaveScreenshot('homepage-empty.png');
+    });
+
+    test('homepage dark mode', async ({ page }) => {
+      await page.click('button[title="Toggle theme"], button[aria-label*="theme"]');
+      await page.waitForTimeout(500);
+      await expect(page.locator('.app, [data-testid="app"]').first()).toHaveScreenshot('homepage-empty-dark.png');
     });
   });
 
-  test.describe('Empty State - Dialogs', () => {
-    test('import dialog (empty state) should match baseline', async ({ page }) => {
-      // Open import dialog with no files selected
-      await page.click('button:has-text("+ Import")');
+  test.describe('Import Dialog', () => {
+    test('import dialog default state', async ({ page }) => {
+      await page.click('button:has-text("Import"), button:has-text("+ Import"), [data-testid="import-button"]');
       await page.waitForTimeout(500);
-      await expect(page.locator('.import-overlay, .import-dialog').first()).toHaveScreenshot('import-dialog-empty.png');
+      await expect(page.locator('.dialog-overlay, [class*="dialog"], [role="dialog"]').first()).toHaveScreenshot('import-dialog.png');
     });
 
-    test('export dialog (empty state) should match baseline', async ({ page }) => {
-      // Export button is disabled when no video selected, screenshot the header with disabled state
+    test('import dialog dark mode', async ({ page }) => {
+      await page.click('button[title="Toggle theme"], button[aria-label*="theme"]');
       await page.waitForTimeout(300);
-      await expect(page.locator('.header')).toHaveScreenshot('export-button-disabled.png');
-    });
-
-    test('settings dialog should match baseline', async ({ page }) => {
-      // Open settings dialog
-      await page.click('button[title="Settings"]');
+      await page.click('button:has-text("Import"), button:has-text("+ Import")');
       await page.waitForTimeout(500);
-      await expect(page.locator('.settings-overlay, .settings-dialog').first()).toHaveScreenshot('settings-dialog.png');
+      await expect(page.locator('.dialog-overlay, [class*="dialog"], [role="dialog"]').first()).toHaveScreenshot('import-dialog-dark.png');
     });
   });
 
-  test.describe('Empty State - Panels', () => {
-    test('silence detection panel (empty state) should match baseline', async ({ page }) => {
-      // Silence detection panel with no video selected
-      await expect(page.locator('.sidebar.right-sidebar')).toHaveScreenshot('silence-detection-empty.png');
-    });
-  });
-
-  test.describe('Dark Mode States', () => {
-    test('homepage dark mode should match baseline', async ({ page }) => {
-      // Toggle to dark mode
-      await page.click('button[title="Toggle theme"]');
+  test.describe('Settings Dialog', () => {
+    test('settings dialog default', async ({ page }) => {
+      await page.click('button[title="Settings"], [aria-label*="Settings"]');
       await page.waitForTimeout(500);
-      await expect(page.locator('.app')).toHaveScreenshot('homepage-empty-dark.png');
+      await expect(page.locator('.settings-overlay, .dialog-overlay, [class*="dialog"], [role="dialog"]').first()).toHaveScreenshot('settings-dialog.png');
     });
 
-    test('settings dialog dark mode should match baseline', async ({ page }) => {
-      // Toggle to dark mode
-      await page.click('button[title="Toggle theme"]');
+    test('settings dialog dark mode', async ({ page }) => {
+      await page.click('button[title="Toggle theme"], button[aria-label*="theme"]');
       await page.waitForTimeout(300);
-      
-      // Open settings dialog
-      await page.click('button[title="Settings"]');
+      await page.click('button[title="Settings"], [aria-label*="Settings"]');
       await page.waitForTimeout(500);
-      await expect(page.locator('.settings-overlay, .settings-dialog').first()).toHaveScreenshot('settings-dialog-dark.png');
+      await expect(page.locator('.settings-overlay, .dialog-overlay, [class*="dialog"], [role="dialog"]').first()).toHaveScreenshot('settings-dialog-dark.png');
+    });
+  });
+
+  test.describe('Export Dialog', () => {
+    test('export dialog', async ({ page }) => {
+      await page.click('button[title="Export"], button:has-text("Export")');
+      await page.waitForTimeout(500);
+      await expect(page.locator('.dialog-overlay, [class*="dialog"], [role="dialog"]').first()).toHaveScreenshot('export-dialog.png');
+    });
+  });
+
+  test.describe('Components', () => {
+    test('silence detection panel', async ({ page }) => {
+      await expect(page.locator('.silence-detection-panel, [data-testid="silence-detection"]').first()).toHaveScreenshot('silence-detection-panel.png');
+    });
+
+    test('buttons component', async ({ page }) => {
+      await expect(page.locator('.button-showcase, [data-testid="buttons"]').first()).toHaveScreenshot('buttons-component.png');
     });
   });
 });
