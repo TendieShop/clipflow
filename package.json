@@ -9,7 +9,7 @@
     "dev:tauri": "tauri dev",
     "build:tauri": "tauri build",
     "lint": "eslint src --max-warnings=10",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "test:ui": "vitest",
     "gate": "npm run lint && npm run build && npm run test",
     "gate:report": "npm run gate 2>&1 | tee /dev/stderr"
