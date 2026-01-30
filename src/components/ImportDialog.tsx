@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 export interface VideoFile {
   id: string;
@@ -29,6 +29,15 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsLoading(false);
+      setError(null);
+      setImportProgress(null);
+    }
+  }, [isOpen]);
 
   const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -101,11 +110,9 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
   }, [onClose, onImport]);
 
   const handleOptionClick = useCallback(() => {
-    if (isLoading) return;
-    setIsLoading(true);
     setError(null);
     fileInputRef.current?.click();
-  }, [isLoading]);
+  }, []);
 
   if (!isOpen) return null;
 
