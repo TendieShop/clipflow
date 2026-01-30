@@ -3,55 +3,85 @@ import { VideoPreviewGrid, VideoPlayer } from './components/VideoPreview';
 import { ImportDialog } from './components/ImportDialog';
 import { ExportDialog } from './components/ExportDialog';
 import { SilenceDetectionPanel } from './components/SilenceDetectionPanel';
+import { SaveDialog } from './components/SaveDialog';
+import { OpenDialog } from './components/OpenDialog';
+import { useProject } from './lib/project';
 import type { VideoFile } from './components/VideoPreview';
 import type { SilenceSegment } from './lib/video';
 import { Button } from './components/ui/button';
 
 function App() {
-  const [videos, setVideos] = useState<VideoFile[]>([]);
+  const {
+    state,
+    saveProject,
+    loadProject,
+    deleteProject,
+    updateProjectVideos,
+    updateSettings,
+  } = useProject();
+
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
-  const [isDark, setIsDark] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('clipflow-theme');
-      if (saved) return saved === 'dark';
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return false;
-  });
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showOpenDialog, setShowOpenDialog] = useState(false);
   
+  const isDark = state.settings.theme === 'dark' || 
+    (state.settings.theme === 'system' && typeof window !== 'undefined' && 
+     window.matchMedia('(prefers-color-scheme: dark)').matches);
+
   // silenceSegments reserved for future timeline integration
   const [_silenceSegments] = useState<SilenceSegment[]>([]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     if (isDark) {
       document.documentElement.classList.add('dark');
-      localStorage.setItem('clipflow-theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
-      localStorage.setItem('clipflow-theme', 'light');
     }
   }, [isDark]);
 
-  const toggleTheme = useCallback(() => {
-    setIsDark(prev => !prev);
-  }, []);
-
-  const selectedVideo = videos.find((v) => v.id === selectedVideoId) || null;
+  const handleToggleTheme = useCallback(() => {
+    const themes: Array<'dark' | 'light' | 'system'> = ['dark', 'light', 'system'];
+    const currentIndex = themes.indexOf(state.settings.theme);
+    const nextIndex = (currentIndex + 1) % themes.length;
+    updateSettings({ theme: themes[nextIndex] });
+  }, [state.settings.theme, updateSettings]);
 
   const handleImport = useCallback((newVideos: VideoFile[]) => {
-    setVideos((prev) => [...prev, ...newVideos]);
+    // Add videos to current project
+    const currentVideos = state.currentProject?.videos || [];
+    const updatedVideos = [...currentVideos, ...newVideos];
+    updateProjectVideos(updatedVideos);
+    
     if (!selectedVideoId && newVideos.length > 0) {
       setSelectedVideoId(newVideos[0].id);
     }
-  }, [selectedVideoId]);
+  }, [state.currentProject, selectedVideoId, updateProjectVideos]);
 
   const handleSilenceDetected = useCallback((segments: SilenceSegment[]) => {
     _silenceSegments; // Reserved for timeline integration
-    console.log('Silence detected:', segments);
+    console.log('[App] Silence detected:', segments);
   }, []);
 
+  const handleSave = useCallback((name: string) => {
+    saveProject(name);
+    setShowSaveDialog(false);
+  }, [saveProject]);
+
+  const handleOpen = useCallback((projectId: string) => {
+    loadProject(projectId);
+    // Clear selected video when switching projects
+    setSelectedVideoId(null);
+  }, [loadProject]);
+
+  const handleDeleteProject = useCallback((projectId: string) => {
+    deleteProject(projectId);
+  }, [deleteProject]);
+
+  const selectedVideo = state.currentProject?.videos.find((v) => v.id === selectedVideoId) || null;
   const selectedVideoSrc = selectedVideo ? `file://${selectedVideo.path}` : null;
 
   return (
@@ -59,9 +89,12 @@ function App() {
       <header className="header">
         <div className="header-left">
           <h1>Clip<span>Flow</span></h1>
+          {state.currentProject && (
+            <span className="project-name">{state.currentProject.name}</span>
+          )}
         </div>
         <div className="header-actions">
-          <Button variant="ghost" size="sm" onClick={toggleTheme}>
+          <Button variant="ghost" size="sm" onClick={handleToggleTheme} title="Toggle theme">
             {isDark ? (
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="5"/>
@@ -73,10 +106,28 @@ function App() {
               </svg>
             )}
           </Button>
-          <Button variant="outline" onClick={() => setShowImportDialog(true)}>
-            + Import Videos
+          
+          <Button variant="outline" size="sm" onClick={() => setShowOpenDialog(true)} title="Open project">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+            </svg>
           </Button>
-          <Button onClick={() => setShowExportDialog(true)} disabled={videos.length === 0}>
+          
+          <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(true)} disabled={!state.currentProject?.videos.length} title="Save project">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+          </Button>
+          
+          <div className="divider" />
+          
+          <Button variant="ghost" size="sm" onClick={() => setShowImportDialog(true)}>
+            + Import
+          </Button>
+          
+          <Button onClick={() => setShowExportDialog(true)} disabled={!state.currentProject?.videos.length}>
             Export
           </Button>
         </div>
@@ -87,10 +138,10 @@ function App() {
           <aside className="sidebar">
             <div className="sidebar-header">
               <h2>Videos</h2>
-              <span className="video-count">{videos.length}</span>
+              <span className="video-count">{state.currentProject?.videos.length || 0}</span>
             </div>
             <VideoPreviewGrid
-              videos={videos}
+              videos={state.currentProject?.videos || []}
               selectedId={selectedVideoId}
               onSelectVideo={setSelectedVideoId}
             />
@@ -125,6 +176,21 @@ function App() {
           videoPath={selectedVideo?.path || null}
           videoName={selectedVideo?.name || ''}
         />
+
+        <SaveDialog
+          isOpen={showSaveDialog}
+          onClose={() => setShowSaveDialog(false)}
+          onSave={handleSave}
+          currentProject={state.currentProject}
+        />
+
+        <OpenDialog
+          isOpen={showOpenDialog}
+          onClose={() => setShowOpenDialog(false)}
+          onOpen={handleOpen}
+          onDelete={handleDeleteProject}
+          projects={state.projects}
+        />
       </main>
 
       <style>{`
@@ -147,20 +213,41 @@ function App() {
           flex-shrink: 0;
         }
 
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
         .header h1 {
           font-size: 1.25rem;
           font-weight: 600;
           color: var(--text-primary);
+          margin: 0;
         }
 
         .header h1 span {
           color: var(--accent);
         }
 
+        .project-name {
+          font-size: 0.875rem;
+          color: var(--text-secondary);
+          padding-left: 1rem;
+          border-left: 1px solid var(--bg-tertiary);
+        }
+
         .header-actions {
           display: flex;
-          gap: 0.75rem;
+          gap: 0.5rem;
           align-items: center;
+        }
+
+        .divider {
+          width: 1px;
+          height: 24px;
+          background: var(--bg-tertiary);
+          margin: 0 0.5rem;
         }
 
         .main-content {
