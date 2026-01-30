@@ -367,6 +367,25 @@ struct WhisperModel {
     description: String,
 }
 
+/// Open file dialog for video selection
+#[tauri::command]
+async fn open_file_dialog(
+    multiple: bool,
+) -> Result<Vec<String>, String> {
+    use tauri::api::dialog::OpenDialog;
+    
+    let result = OpenDialog::new()
+        .add_filter("Video Files", &["mp4", "mov", "avi", "mkv", "webm", "m4v"])
+        .set_multi_selection(multiple)
+        .set_directory(false)
+        .pick_files();
+    
+    match result {
+        Some(paths) => Ok(paths),
+        None => Ok(vec![]),
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_shell::init())
@@ -379,7 +398,8 @@ fn main() {
             analyze_silence,
             export_video,
             transcribe_audio,
-            get_available_whisper_models
+            get_available_whisper_models,
+            open_file_dialog
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
