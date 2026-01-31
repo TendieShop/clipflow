@@ -1,330 +1,293 @@
-import { useState, useCallback, useEffect } from 'react';
-import { VideoPreviewGrid, VideoPlayer } from './components/VideoPreview';
+import { useState, useCallback } from 'react';
+import { VideoFile } from './services/video-types';
 import { ImportDialog } from './components/ImportDialog';
 import { ExportDialog } from './components/ExportDialog';
+import { VideoPreview } from './components/VideoPreview';
 import { SilenceDetectionPanel } from './components/SilenceDetectionPanel';
-import { SaveDialog } from './components/SaveDialog';
-import { OpenDialog } from './components/OpenDialog';
-import { SettingsDialog } from './components/SettingsDialog';
-import { useProject } from './lib/project';
-import type { VideoFile } from './components/VideoPreview';
-import type { SilenceSegment } from './lib/video';
-import { Button } from './components/ui/button';
-import { info } from './lib/logger';
+import { Timeline } from './components/Timeline';
+import { Card, CardContent } from './components/Card';
+import { Button, IconButton } from './components/Button';
+import { Input } from './components/Input';
 
 function App() {
-  const {
-    state,
-    saveProject,
-    loadProject,
-    deleteProject,
-    updateProjectVideos,
-    updateSettings,
-  } = useProject();
-
-  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
-  const [showImportDialog, setShowImportDialog] = useState(false);
-  const [showExportDialog, setShowExportDialog] = useState(false);
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [showOpenDialog, setShowOpenDialog] = useState(false);
-  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
-  
-  const isDark = state.settings.theme === 'dark' || 
-    (state.settings.theme === 'system' && typeof window !== 'undefined' && 
-     window.matchMedia('(prefers-color-scheme: dark)').matches);
-
-  // silenceSegments reserved for future timeline integration
-  const [_silenceSegments] = useState<SilenceSegment[]>([]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDark]);
-
-  const handleToggleTheme = useCallback(() => {
-    const themes: Array<'dark' | 'light' | 'system'> = ['dark', 'light', 'system'];
-    const currentIndex = themes.indexOf(state.settings.theme);
-    const nextIndex = (currentIndex + 1) % themes.length;
-    updateSettings({ theme: themes[nextIndex] });
-  }, [state.settings.theme, updateSettings]);
+  const [videos, setVideos] = useState<VideoFile[]>([]);
+  const [selectedVideo, setSelectedVideo] = useState<VideoFile | null>(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isSilencePanelOpen, setIsSilencePanelOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleImport = useCallback((newVideos: VideoFile[]) => {
-    // Add videos to current project
-    const currentVideos = state.currentProject?.videos || [];
-    const updatedVideos = [...currentVideos, ...newVideos];
-    updateProjectVideos(updatedVideos);
-    
-    if (!selectedVideoId && newVideos.length > 0) {
-      setSelectedVideoId(newVideos[0].id);
+    setVideos(prev => [...prev, ...newVideos]);
+    if (!selectedVideo && newVideos.length > 0) {
+      setSelectedVideo(newVideos[0]);
     }
-  }, [state.currentProject, selectedVideoId, updateProjectVideos]);
+  }, [selectedVideo]);
 
-  const handleSilenceDetected = useCallback((segments: SilenceSegment[]) => {
-    _silenceSegments; // Reserved for timeline integration
-    info('silence.detected', { count: segments.length });
+  const handleExport = useCallback((outputPath: string, quality: string) => {
+    console.log('Exporting to:', outputPath, 'Quality:', quality);
   }, []);
 
-  const handleSave = useCallback((name: string) => {
-    saveProject(name);
-    setShowSaveDialog(false);
-  }, [saveProject]);
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds % 1) * 100);
+    return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+  };
 
-  const handleOpen = useCallback((projectId: string) => {
-    loadProject(projectId);
-    // Clear selected video when switching projects
-    setSelectedVideoId(null);
-  }, [loadProject]);
-
-  const handleDeleteProject = useCallback((projectId: string) => {
-    deleteProject(projectId);
-  }, [deleteProject]);
-
-  const selectedVideo = state.currentProject?.videos.find((v) => v.id === selectedVideoId) || null;
-  const selectedVideoSrc = selectedVideo ? `file://${selectedVideo.path}` : null;
+  const handleSeek = (time: number) => {
+    setCurrentTime(time);
+  };
 
   return (
-    <div className="app">
-      <header className="header">
-        <div className="header-left">
-          <h1>Clip<span>Flow</span></h1>
-          {state.currentProject && (
-            <span className="project-name">{state.currentProject.name}</span>
-          )}
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
+      {/* Header with macOS controls */}
+      <header className="flex-none h-10 bg-background border-b border-border flex items-center px-4">
+        {/* macOS Window Controls */}
+        <div className="flex items-center gap-2 mr-4">
+          <div className="w-3 h-3 rounded-full bg-red-500/80" />
+          <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+          <div className="w-3 h-3 rounded-full bg-green-500/80" />
         </div>
-        <div className="header-actions">
-          <Button variant="ghost" size="sm" onClick={handleToggleTheme} title="Toggle theme">
-            {isDark ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="5"/>
-                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-              </svg>
-            )}
-          </Button>
-          
-          <Button variant="outline" size="sm" onClick={() => setShowOpenDialog(true)} title="Open project">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+        
+        {/* App Title */}
+        <h1 className="font-semibold text-text-primary">ClipFlow</h1>
+        
+        {/* Header Actions */}
+        <div className="flex-1" />
+        <div className="flex items-center gap-2">
+          <IconButton label="Settings">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-          </Button>
-          
-          <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(true)} disabled={!state.currentProject?.videos.length} title="Save project">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
-              <polyline points="17 21 17 13 7 13 7 21"/>
-              <polyline points="7 3 7 8 15 8"/>
-            </svg>
-          </Button>
-          
-          <Button variant="ghost" size="sm" onClick={() => setShowSettingsDialog(true)} title="Settings">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
-            </svg>
-          </Button>
-          
-          <div className="divider" />
-          
-          <Button variant="ghost" size="sm" onClick={() => setShowImportDialog(true)}>
-            + Import
-          </Button>
-          
-          <Button onClick={() => setShowExportDialog(true)} disabled={!state.currentProject?.videos.length}>
-            Export
-          </Button>
+          </IconButton>
         </div>
       </header>
 
-      <main className="main-content">
-        <div className="workspace">
-          <aside className="sidebar">
-            <div className="sidebar-header">
-              <h2>Videos</h2>
-              <span className="video-count">{state.currentProject?.videos.length || 0}</span>
-            </div>
-            <VideoPreviewGrid
-              videos={state.currentProject?.videos || []}
-              selectedId={selectedVideoId}
-              onSelectVideo={setSelectedVideoId}
-            />
-          </aside>
-
-          <section className="preview-area">
-            <VideoPlayer src={selectedVideoSrc} />
-          </section>
-
-          <aside className="sidebar right-sidebar">
-            <div className="sidebar-header">
-              <h2>Tools</h2>
-            </div>
-            <div className="tools-content">
-              <SilenceDetectionPanel
-                videoPath={selectedVideo?.path || null}
-                onSilenceDetected={handleSilenceDetected}
+      {/* Main Content Area */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Main Content (Video Preview + Timeline) */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Video Preview */}
+          <div className="flex-none p-4">
+            {selectedVideo ? (
+              <VideoPreview
+                filePath={selectedVideo.path}
+                currentTime={currentTime}
+                onTimeUpdate={setCurrentTime}
               />
-            </div>
-          </aside>
+            ) : (
+              <Card className="h-[400px] flex items-center justify-center">
+                <CardContent className="text-center">
+                  <svg className="w-16 h-16 mx-auto mb-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-text-secondary">No video selected</p>
+                  <p className="text-sm text-text-muted mt-2">Import a video to get started</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Timeline */}
+          <div className="flex-1 p-4 overflow-hidden">
+            <Timeline
+              video={selectedVideo}
+              currentTime={currentTime}
+              onTimeSelect={setCurrentTime}
+            />
+          </div>
+
+          {/* Time Display */}
+          <div className="flex-none px-4 pb-2 text-sm text-text-muted">
+            Current: {formatTime(currentTime)}
+            {selectedVideo && ` / ${formatTime(selectedVideo.duration)}`}
+          </div>
         </div>
 
-        <ImportDialog
-          isOpen={showImportDialog}
-          onClose={() => setShowImportDialog(false)}
-          onImport={handleImport}
-        />
+        {/* Right Sidebar */}
+        <aside className="w-72 border-l border-border bg-background flex flex-col overflow-hidden">
+          {/* Search */}
+          <div className="p-4 border-b border-border">
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
 
+          {/* Sidebar Content */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Video Info */}
+            {selectedVideo && (
+              <Card>
+                <CardContent className="space-y-3">
+                  <h3 className="font-medium text-text-primary">Video Info</h3>
+                  <div className="text-sm space-y-1">
+                    <p className="text-text-secondary">
+                      <span className="text-text-muted">Name:</span> {selectedVideo.name}
+                    </p>
+                    <p className="text-text-secondary">
+                      <span className="text-text-muted">Duration:</span> {formatTime(selectedVideo.duration)}
+                    </p>
+                    <p className="text-text-secondary">
+                      <span className="text-text-muted">Format:</span> {(selectedVideo.format || 'Unknown').toUpperCase()}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Quick Actions */}
+            <Card>
+              <CardContent className="space-y-2">
+                <h3 className="font-medium text-text-primary mb-3">Actions</h3>
+                <Button
+                  variant="secondary"
+                  className="w-full justify-start"
+                  onClick={() => setIsImportOpen(true)}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  Import Video
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="w-full justify-start"
+                  disabled={!selectedVideo}
+                  onClick={() => setIsSilencePanelOpen(true)}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                  Silence Detect
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="w-full justify-start"
+                  disabled={!selectedVideo}
+                  onClick={() => setIsExportOpen(true)}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Export
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Video Library */}
+            <div>
+              <h3 className="font-medium text-text-primary mb-2">Library</h3>
+              {videos.length === 0 ? (
+                <p className="text-sm text-text-muted">No videos imported</p>
+              ) : (
+                <div className="space-y-2">
+                  {videos.map((video) => (
+                    <Card
+                      key={video.id}
+                      hoverable
+                      onClick={() => setSelectedVideo(video)}
+                      className={`
+                        p-3 transition-all
+                        ${selectedVideo?.id === video.id 
+                          ? 'border-accent bg-accent/10' 
+                          : ''
+                        }
+                      `}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`
+                          w-10 h-10 rounded overflow-hidden flex-shrink-0 flex items-center justify-center
+                          ${selectedVideo?.id === video.id ? 'bg-accent/20' : 'bg-surface'}
+                        `}>
+                          <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate text-text-primary">{video.name}</div>
+                          <div className="text-xs text-text-muted">{formatTime(video.duration)}</div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* Bottom Player Bar */}
+      <footer className="flex-none h-14 border-t border-border bg-surface flex items-center px-4 gap-4">
+        {/* Timecode */}
+        <div className="font-mono text-lg text-text-primary">
+          {formatTime(currentTime)}
+        </div>
+
+        {/* Progress Bar */}
+        <div className="flex-1">
+          <input
+            type="range"
+            min={0}
+            max={selectedVideo?.duration || 100}
+            value={currentTime}
+            onChange={(e) => handleSeek(Number(e.target.value))}
+            className="w-full h-1 bg-border rounded-full appearance-none cursor-pointer
+                       [&::-webkit-slider-thumb]:appearance-none
+                       [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
+                       [&::-webkit-slider-thumb]:rounded-full
+                       [&::-webkit-slider-thumb]:bg-accent
+                       [&::-webkit-slider-thumb]:cursor-pointer"
+          />
+        </div>
+
+        {/* Total Duration */}
+        <div className="font-mono text-sm text-text-muted">
+          {selectedVideo ? formatTime(selectedVideo.duration) : '0:00.000'}
+        </div>
+
+        {/* Playback Controls */}
+        <div className="flex items-center gap-2">
+          <IconButton label="Settings">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </IconButton>
+        </div>
+      </footer>
+
+      {/* Dialogs */}
+      <ImportDialog
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onImport={handleImport}
+      />
+
+      {selectedVideo && (
         <ExportDialog
-          isOpen={showExportDialog}
-          onClose={() => setShowExportDialog(false)}
-          videoPath={selectedVideo?.path || null}
-          videoName={selectedVideo?.name || ''}
+          isOpen={isExportOpen}
+          filePath={selectedVideo.path}
+          onClose={() => setIsExportOpen(false)}
+          onExport={handleExport}
         />
+      )}
 
-        <SaveDialog
-          isOpen={showSaveDialog}
-          onClose={() => setShowSaveDialog(false)}
-          onSave={handleSave}
-          currentProject={state.currentProject}
+      {selectedVideo && (
+        <SilenceDetectionPanel
+          isOpen={isSilencePanelOpen}
+          filePath={selectedVideo.path}
+          onClose={() => setIsSilencePanelOpen(false)}
+          onTrim={(start, end) => {
+            console.log('Trim from', start, 'to', end);
+          }}
         />
-
-        <OpenDialog
-          isOpen={showOpenDialog}
-          onClose={() => setShowOpenDialog(false)}
-          onOpen={handleOpen}
-          onDelete={handleDeleteProject}
-          projects={state.projects}
-        />
-
-        <SettingsDialog
-          isOpen={showSettingsDialog}
-          onClose={() => setShowSettingsDialog(false)}
-        />
-      </main>
-
-      <style>{`
-        .app {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-          background: var(--bg-primary);
-          color: var(--text-primary);
-          transition: background 0.2s, color 0.2s;
-        }
-
-        .header {
-          background: var(--bg-secondary);
-          padding: 0.75rem 1.5rem;
-          border-bottom: 1px solid var(--bg-tertiary);
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          flex-shrink: 0;
-        }
-
-        .header-left {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .header h1 {
-          font-size: 1.25rem;
-          font-weight: 600;
-          color: var(--text-primary);
-          margin: 0;
-        }
-
-        .header h1 span {
-          color: var(--accent);
-        }
-
-        .project-name {
-          font-size: 0.875rem;
-          color: var(--text-secondary);
-          padding-left: 1rem;
-          border-left: 1px solid var(--bg-tertiary);
-        }
-
-        .header-actions {
-          display: flex;
-          gap: 0.5rem;
-          align-items: center;
-        }
-
-        .divider {
-          width: 1px;
-          height: 24px;
-          background: var(--bg-tertiary);
-          margin: 0 0.5rem;
-        }
-
-        .main-content {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-        }
-
-        .workspace {
-          flex: 1;
-          display: grid;
-          grid-template-columns: 280px 1fr 280px;
-          gap: 1px;
-          background: var(--bg-tertiary);
-        }
-
-        .sidebar {
-          background: var(--bg-secondary);
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-        }
-
-        .sidebar-header {
-          padding: 1rem;
-          border-bottom: 1px solid var(--bg-tertiary);
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .sidebar-header h2 {
-          font-size: 0.875rem;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: var(--text-secondary);
-        }
-
-        .video-count {
-          background: var(--accent);
-          color: white;
-          font-size: 0.75rem;
-          font-weight: 600;
-          padding: 0.125rem 0.5rem;
-          border-radius: 9999px;
-        }
-
-        .tools-content {
-          flex: 1;
-          padding: 1rem;
-          overflow-y: auto;
-        }
-
-        .preview-area {
-          background: var(--bg-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-      `}</style>
+      )}
     </div>
   );
 }
