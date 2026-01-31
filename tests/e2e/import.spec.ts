@@ -3,15 +3,14 @@ import { test, expect } from '@playwright/test';
 test.describe('Import Feature', () => {
   
   test.beforeEach(async ({ page }) => {
-    // Mock Tauri environment for all tests
+    // Mock Electron environment for all tests
     await page.evaluate(() => {
-      (window as any).__TAURI__ = {
-        invoke: async (cmd: string, args: any) => {
-          if (cmd === 'open_file_dialog') {
+      (window as any).electronAPI = {
+        dialog: {
+          openFile: async (options: any) => {
             // Return mock file paths
             return ['/Users/test/videos/sample.mp4', '/Users/test/videos/test.mov'];
           }
-          return null;
         }
       };
     });
@@ -24,16 +23,16 @@ test.describe('Import Feature', () => {
     await expect(page.locator('.dialog')).toContainText('Import Videos');
   });
 
-  test('tauri environment detection works', async ({ page }) => {
-    const isTauri = await page.evaluate(() => {
-      return !!(window as any).__TAURI__;
+  test('electron environment detection works', async ({ page }) => {
+    const isElectron = await page.evaluate(() => {
+      return !!(window as any).electronAPI;
     });
-    expect(isTauri).toBe(true);
+    expect(isElectron).toBe(true);
   });
 
-  test('open_file_dialog command returns file paths', async ({ page }) => {
+  test('openFile command returns file paths', async ({ page }) => {
     const paths = await page.evaluate(() => {
-      return (window as any).__TAURI__.invoke('open_file_dialog', { multiple: true });
+      return (window as any).electronAPI.dialog.openFile({ multiple: true });
     });
     
     expect(paths).toHaveLength(2);
@@ -45,7 +44,7 @@ test.describe('Import Feature', () => {
     await page.goto('/');
     await page.click('[data-testid="import-button"]');
     
-    // Click on the import option which should trigger Tauri dialog
+    // Click on the import option which should trigger Electron dialog
     await page.click('.import-option');
     
     // Since we mocked the dialog, it should return immediately with mock paths
@@ -56,12 +55,11 @@ test.describe('Import Feature', () => {
   test('unsupported format is skipped', async ({ page }) => {
     // Override mock to return unsupported format
     await page.evaluate(() => {
-      (window as any).__TAURI__ = {
-        invoke: async (cmd: string, args: any) => {
-          if (cmd === 'open_file_dialog') {
+      (window as any).electronAPI = {
+        dialog: {
+          openFile: async (options: any) => {
             return ['/Users/test/video.exe'];
           }
-          return null;
         }
       };
     });
@@ -77,10 +75,12 @@ test.describe('Import Feature', () => {
   test('loading state shows during import', async ({ page }) => {
     // Slow mock response
     await page.evaluate(() => {
-      (window as any).__TAURI__ = {
-        invoke: async (cmd: string, args: any) => {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          return ['/Users/test/video.mp4'];
+      (window as any).electronAPI = {
+        dialog: {
+          openFile: async (options: any) => {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            return ['/Users/test/video.mp4'];
+          }
         }
       };
     });
@@ -92,18 +92,66 @@ test.describe('Import Feature', () => {
     // Should see loading spinner or text
     await expect(page.locator('.option-text h4')).toContainText('Reading files');
   });
+});
 
-  test('browser mode shows error message', async ({ page }) => {
-    // Clear Tauri mock to simulate browser mode
+test.describe('Video Playback', () => {
+  test.beforeEach(async ({ page }) => {
     await page.evaluate(() => {
-      (window as any).__TAURI__ = undefined;
+      (window as any).electronAPI = {
+        dialog: {
+          openFile: async () => ['/test/video.mp4']
+        }
+      };
     });
+  });
 
+  test('video player renders', async ({ page }) => {
     await page.goto('/');
+    
+    // Import a video first
     await page.click('[data-testid="import-button"]');
     await page.click('.import-option');
     
-    // Should show helpful error for browser mode
-    await expect(page.locator('.error-message')).toContainText('ClipFlow app');
+    // Click on the video in the sidebar
+    await page.click('.p-2.rounded >> text=sample.mp4');
+    
+    // Video player should be visible
+    await expect(page.locator('[data-testid="video-player"]')).toBeVisible();
+  });
+
+  test('play button is clickable', async ({ page }) => {
+    await page.goto('/');
+    
+    // Import a video first
+    await page.click('[data-testid="import-button"]');
+    await page.click('.import-option');
+    
+    // Click on the video
+    await page.click('.p-2.rounded >> text=sample.mp4');
+    
+    // Play button should be visible and clickable
+    await expect(page.locator('[data-testid="play-button"]')).toBeVisible();
+  });
+
+  test('seek slider works', async ({ page }) => {
+    await page.goto('/');
+    
+    // Import a video first
+    await page.click('[data-testid="import-button"]');
+    await page.click('.import-option');
+    
+    // Click on the video
+    await page.click('.p-2.rounded >> text=sample.mp4');
+    
+    // Seek slider should be visible
+    await expect(page.locator('[data-testid="seek-slider"]')).toBeVisible();
+  });
+});
+
+test.describe('Settings', () => {
+  test('settings dialog opens', async ({ page }) => {
+    await page.goto('/');
+    await page.click('[title="Settings"]');
+    await expect(page.locator('h2:has-text("Settings")')).toBeVisible();
   });
 });

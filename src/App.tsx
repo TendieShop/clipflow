@@ -5,9 +5,11 @@ import { ExportDialog } from './components/ExportDialog';
 import { VideoPlayer } from './components/VideoPreview';
 import { SilenceDetectionPanel } from './components/SilenceDetectionPanel';
 import { SettingsDialog } from './components/SettingsDialog';
+import { TrimDialog } from './components/TrimDialog';
+import { ExtractAudioDialog } from './components/ExtractAudioDialog';
 import { Button, IconButton } from './components/Button';
 import { Input } from './components/Input';
-import { Settings } from 'lucide-react';
+import { Settings, Scissors, Music } from 'lucide-react';
 
 function App() {
   const [videos, setVideos] = useState<VideoFile[]>([]);
@@ -16,6 +18,8 @@ function App() {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isSilencePanelOpen, setIsSilencePanelOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTrimOpen, setIsTrimOpen] = useState(false);
+  const [isExtractAudioOpen, setIsExtractAudioOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -28,6 +32,16 @@ function App() {
 
   const handleExport = useCallback((outputPath: string, quality: string) => {
     console.log('Exporting to:', outputPath, 'Quality:', quality);
+  }, []);
+
+  const handleTrim = useCallback((inputPath: string, outputPath: string, startTime: number, endTime: number) => {
+    console.log('Trimming video:', { inputPath, outputPath, startTime, endTime });
+    // IPC call to trim-video would go here
+  }, []);
+
+  const handleExtractAudio = useCallback((inputPath: string, outputPath: string) => {
+    console.log('Extracting audio:', { inputPath, outputPath });
+    // IPC call to extract-audio would go here
   }, []);
 
   const formatTime = (seconds: number): string => {
@@ -211,6 +225,26 @@ function App() {
             >
               Silence Detection
             </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                className="flex-1"
+                onClick={() => setIsTrimOpen(true)}
+                disabled={!selectedVideo}
+              >
+                <Scissors className="w-4 h-4 mr-1" />
+                Trim
+              </Button>
+              <Button
+                variant="ghost"
+                className="flex-1"
+                onClick={() => setIsExtractAudioOpen(true)}
+                disabled={!selectedVideo}
+              >
+                <Music className="w-4 h-4 mr-1" />
+                Audio
+              </Button>
+            </div>
           </div>
         </aside>
       </div>
@@ -242,6 +276,24 @@ function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
       />
+
+      {selectedVideo && (
+        <TrimDialog
+          isOpen={isTrimOpen}
+          video={selectedVideo}
+          onClose={() => setIsTrimOpen(false)}
+          onTrim={handleTrim}
+        />
+      )}
+
+      {selectedVideo && (
+        <ExtractAudioDialog
+          isOpen={isExtractAudioOpen}
+          video={selectedVideo}
+          onClose={() => setIsExtractAudioOpen(false)}
+          onExtract={handleExtractAudio}
+        />
+      )}
     </div>
   );
 }
