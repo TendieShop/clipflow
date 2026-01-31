@@ -4,6 +4,7 @@ import { ImportDialog } from './components/ImportDialog';
 import { ExportDialog } from './components/ExportDialog';
 import { VideoPreview } from './components/VideoPreview';
 import { SilenceDetectionPanel } from './components/SilenceDetectionPanel';
+import { SettingsDialog } from './components/SettingsDialog';
 import { Button, IconButton } from './components/Button';
 import { Input } from './components/Input';
 import { Settings } from 'lucide-react';
@@ -14,6 +15,7 @@ function App() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isSilencePanelOpen, setIsSilencePanelOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -63,6 +65,7 @@ function App() {
             size="icon"
             label="Settings"
             aria-label="Settings"
+            onClick={() => setIsSettingsOpen(true)}
           >
             <Settings className="w-5 h-5" />
           </IconButton>
@@ -234,6 +237,11 @@ function App() {
           onClose={() => setIsSilencePanelOpen(false)}
         />
       )}
+
+      <SettingsDialog
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   );
 }
