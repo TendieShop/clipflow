@@ -47,12 +47,14 @@ function App() {
     <div className="h-screen flex flex-col bg-[#0a0a0a] overflow-hidden">
       {/* Header */}
       <header className="flex-none h-12 bg-[#0a0a0a] border-b border-[#262626] flex items-center px-4">
+        {/* Left spacer for macOS controls */}
+        <div className="w-20" />
+        
         {/* App Title - Centered */}
-        <h1 className="absolute left-1/2 transform -translate-x-1/2 font-semibold text-[#f5f5f5] text-lg">ClipFlow</h1>
+        <h1 className="flex-1 text-center font-semibold text-[#f5f5f5] text-lg">ClipFlow</h1>
         
         {/* Header Actions */}
-        <div className="flex-1" />
-        <div className="flex items-center gap-2">
+        <div className="w-20 flex justify-end">
           <IconButton
             variant="ghost"
             size="icon"
