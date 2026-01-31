@@ -14,6 +14,19 @@ export interface SilenceSegment {
   duration: number;
 }
 
+export interface SilenceSegment {
+  start: number;
+  end: number;
+  duration: number;
+}
+
+export interface VideoClip {
+  id: string;
+  name: string;
+  startTime: number;
+  endTime: number;
+}
+
 export interface VideoFile {
   id: string;
   name: string;

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Button } from './ui/button';
+import { Button } from './Button';
+import { VideoFile } from '../services/video-types';
 
 // Type definition for Tauri window
 declare global {
@@ -8,17 +9,6 @@ declare global {
       invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
     };
   }
-}
-
-export interface VideoFile {
-  id: string;
-  name: string;
-  path: string;
-  duration: number;
-  thumbnail?: string;
-  status: 'importing' | 'ready' | 'processing' | 'done';
-  size?: number;
-  format?: string;
 }
 
 interface ImportDialogProps {
