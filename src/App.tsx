@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { VideoFile } from './services/video-types';
 import { ImportDialog } from './components/ImportDialog';
 import { ExportDialog } from './components/ExportDialog';
-import { VideoPreview } from './components/VideoPreview';
+import { VideoPlayer } from './components/VideoPreview';
 import { SilenceDetectionPanel } from './components/SilenceDetectionPanel';
 import { SettingsDialog } from './components/SettingsDialog';
 import { Button, IconButton } from './components/Button';
@@ -125,15 +125,15 @@ function App() {
           </div>
         </aside>
 
-        {/* Center - Video Preview */}
-        <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Center - Video Preview with Playback */}
+        <main className="flex-1 flex flex-col overflow-hidden bg-[#0a0a0a]">
           <div className="flex-1 flex items-center justify-center p-4">
             {selectedVideo ? (
-              <div className="w-full max-w-4xl aspect-video bg-[#171717] rounded-lg flex items-center justify-center">
-                <VideoPreview
-                  video={selectedVideo}
-                  isSelected={true}
-                  onSelect={() => {}}
+              <div className="w-full max-w-4xl aspect-video bg-[#171717] rounded-lg overflow-hidden">
+                <VideoPlayer
+                  src={selectedVideo.path}
+                  onTimeUpdate={handleSeek}
+                  initialTime={currentTime}
                 />
               </div>
             ) : (
@@ -153,7 +153,7 @@ function App() {
               <input
                 type="range"
                 min={0}
-                max={selectedVideo.duration}
+                max={selectedVideo.duration || 100}
                 value={currentTime}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSeek(Number(e.target.value))}
                 className="w-full"
