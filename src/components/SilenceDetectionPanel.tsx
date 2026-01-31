@@ -8,10 +8,32 @@ interface SilenceDetectionPanelProps {
   onClose: () => void;
 }
 
+// Check if running in Electron app
+function isElectronApp(): boolean {
+  return !!(window as any).electronAPI;
+}
+
+// Call IPC to analyze silence
+async function analyzeSilenceIPC(
+  filePath: string,
+  thresholdDB: number
+): Promise<Array<{ start: number; end: number; duration: number }>> {
+  if (!isElectronApp() || !window.electronAPI) {
+    throw new Error('Electron API not available');
+  }
+  
+  const result = await window.electronAPI.video.analyzeSilence({
+    filePath,
+    thresholdDB
+  });
+  
+  return result || [];
+}
+
 export function SilenceDetectionPanel({ video, onClose }: SilenceDetectionPanelProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [threshold, setThreshold] = useState(-50);
-  const [segments, setSegments] = useState<{ start: number; end: number; duration: number }[]>([]);
+  const [segments, setSegments] = useState<Array<{ start: number; end: number; duration: number }>>([]);
   const [error, setError] = useState<string | null>(null);
 
   const handleAnalyze = useCallback(async () => {
@@ -19,21 +41,17 @@ export function SilenceDetectionPanel({ video, onClose }: SilenceDetectionPanelP
     setError(null);
 
     try {
-      // Simulate analysis - in real app, this would use electronAPI
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Mock silence segments
-      const mockSegments = [
-        { start: 5.2, end: 8.7, duration: 3.5 },
-        { start: 45.3, end: 52.1, duration: 6.8 },
-      ];
-      setSegments(mockSegments);
+      // Call IPC to analyze silence
+      const results = await analyzeSilenceIPC(video.path, threshold);
+      setSegments(results);
+      console.log(`[SilenceDetection] Found ${results.length} silence segments`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to analyze silence');
+      console.error('[SilenceDetection] Analysis failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to analyze silence. Make sure FFmpeg is installed.');
     } finally {
       setIsAnalyzing(false);
     }
-  }, []);
+  }, [video.path, threshold]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -70,7 +88,7 @@ export function SilenceDetectionPanel({ video, onClose }: SilenceDetectionPanelP
               max="0"
               value={threshold}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setThreshold(Number(e.target.value))}
-              className="w-full mt-1"
+              className="w-full mt-1 accent-[#22c55e]"
             />
           </div>
 
@@ -80,7 +98,7 @@ export function SilenceDetectionPanel({ video, onClose }: SilenceDetectionPanelP
             disabled={isAnalyzing}
             className="w-full"
           >
-            {isAnalyzing ? 'Analyzing...' : 'Detect Silence'}
+            {isAnalyzing ? 'Detecting...' : 'Detect Silence'}
           </Button>
 
           {error && (
@@ -90,7 +108,7 @@ export function SilenceDetectionPanel({ video, onClose }: SilenceDetectionPanelP
           )}
 
           {segments.length > 0 && (
-            <div>
+            <div className="silence-segments">
               <h3 className="text-sm font-medium text-[#f5f5f5] mb-2">
                 Silence Segments ({segments.length})
               </h3>
@@ -98,7 +116,7 @@ export function SilenceDetectionPanel({ video, onClose }: SilenceDetectionPanelP
                 {segments.map((segment, index) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between p-2 bg-[#262626] rounded"
+                    className="silence-segment flex items-center justify-between p-2 bg-[#262626] rounded"
                   >
                     <span className="text-sm text-[#a3a3a3]">
                       {formatTime(segment.start)} - {formatTime(segment.end)}
