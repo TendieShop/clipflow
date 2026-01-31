@@ -2,15 +2,6 @@ import { useState, useCallback } from 'react';
 import { Button } from './Button';
 import { VideoFile } from '../services/video-types';
 
-// Type definition for Tauri window
-declare global {
-  interface Window {
-    __TAURI__?: {
-      invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
-    };
-  }
-}
-
 interface ImportDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,17 +15,23 @@ function isValidVideoFormat(filename: string): boolean {
   return SUPPORTED_FORMATS.includes(ext);
 }
 
-// Check if running in Tauri
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && !!(window as any).__TAURI__;
+// Check if running in Electron app
+function isElectronApp(): boolean {
+  return !!(window as any).electronAPI;
 }
 
-// Safe invoke that works in both browser and Tauri
-async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (!isTauri()) {
-    throw new Error('Tauri API not available');
+// Safe IPC call wrapper
+async function electronDialogOpenFile(multiple: boolean): Promise<string[]> {
+  if (!isElectronApp() || !window.electronAPI) {
+    throw new Error('Import requires Electron app context. Please run the ClipFlow desktop app.');
   }
-  return (window as any).__TAURI__.invoke(cmd, args);
+  
+  const result = await window.electronAPI.dialog.openFile({
+    multiple,
+    filters: [{ name: 'Video Files', extensions: SUPPORTED_FORMATS }],
+  });
+  
+  return result || [];
 }
 
 export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
@@ -46,17 +43,13 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
     setError(null);
 
     try {
-      // Check if running in Tauri - feature only works in app
-      if (!isTauri()) {
-        setError('Import is only available in the ClipFlow app. Please run the Tauri app.');
-        setIsLoading(false);
-        return;
+      // Check if running in Electron app
+      if (!isElectronApp() || !window.electronAPI) {
+        throw new Error('Import requires Electron app context. Please run the ClipFlow desktop app.');
       }
 
-      // Use Tauri dialog API to get real file paths
-      const paths: string[] = await tauriInvoke('open_file_dialog', {
-        multiple: true,
-      });
+      // Use Electron dialog API to get real file paths
+      const paths = await electronDialogOpenFile(true);
 
       if (!paths || paths.length === 0) {
         setIsLoading(false);
@@ -166,12 +159,12 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
         }
 
         .dialog {
-          background: var(--bg-secondary);
-          border: 1px solid var(--border-subtle);
+          background: #171717;
+          border: 1px solid #262626;
           border-radius: 12px;
           width: 100%;
           max-width: 480px;
-          box-shadow: var(--shadow-high);
+          box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
           animation: scaleIn 0.2s ease;
         }
 
@@ -180,20 +173,20 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
           justify-content: space-between;
           align-items: center;
           padding: 1.25rem 1.5rem;
-          border-bottom: 1px solid var(--bg-tertiary);
+          border-bottom: 1px solid #262626;
         }
 
         .dialog-header h3 {
           font-size: 1.125rem;
           font-weight: 600;
-          color: var(--text-primary);
+          color: #f5f5f5;
           margin: 0;
         }
 
         .close-btn {
           background: none;
           border: none;
-          color: var(--text-secondary);
+          color: #a3a3a3;
           font-size: 1.5rem;
           cursor: pointer;
           padding: 0;
@@ -201,7 +194,7 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
         }
 
         .close-btn:hover {
-          color: var(--text-primary);
+          color: #f5f5f5;
         }
 
         .dialog-content {
@@ -210,8 +203,8 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
 
         .error-message {
           background: rgba(239, 68, 68, 0.1);
-          border: 1px solid var(--error);
-          color: var(--error);
+          border: 1px solid #ef4444;
+          color: #ef4444;
           padding: 0.75rem 1rem;
           border-radius: 8px;
           margin-bottom: 1rem;
@@ -229,7 +222,7 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
           align-items: center;
           gap: 1rem;
           padding: 1rem;
-          background: var(--bg-tertiary);
+          background: #262626;
           border-radius: 8px;
           cursor: pointer;
           transition: all 0.2s;
@@ -237,8 +230,8 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
         }
 
         .import-option:hover:not(.disabled) {
-          background: var(--bg-elevated);
-          border-color: var(--accent);
+          background: #333333;
+          border-color: #3b82f6;
         }
 
         .import-option.disabled {
@@ -249,7 +242,7 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
         .option-icon {
           width: 48px;
           height: 48px;
-          background: var(--accent);
+          background: #3b82f6;
           border-radius: 8px;
           display: flex;
           align-items: center;
@@ -280,12 +273,12 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
           font-size: 0.9375rem;
           font-weight: 500;
           margin-bottom: 0.25rem;
-          color: var(--text-primary);
+          color: #f5f5f5;
         }
 
         .option-text p {
           font-size: 0.8125rem;
-          color: var(--text-secondary);
+          color: #a3a3a3;
           margin: 0;
         }
 
@@ -296,13 +289,13 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
 
         .supported-formats p {
           font-size: 0.75rem;
-          color: var(--text-secondary);
+          color: #737373;
           margin: 0;
         }
 
         .dialog-footer {
           padding: 1rem 1.5rem;
-          border-top: 1px solid var(--bg-tertiary);
+          border-top: 1px solid #262626;
           display: flex;
           justify-content: flex-end;
           gap: 0.75rem;
