@@ -7,6 +7,15 @@ declare module '*.css' {
 
 interface ElectronVideoAPI {
   getVideoDuration(filePath: string): Promise<number>;
+  getMetadata(filePath: string): Promise<{
+    duration: number;
+    width: number;
+    height: number;
+    format: string;
+    codec: string;
+    bitrate: number;
+    fps: number;
+  }>;
   trimVideo(args: { inputPath: string; outputPath: string; startTime: number; endTime: number }): Promise<void>;
   extractAudio(args: { inputPath: string; outputPath: string }): Promise<void>;
   analyzeSilence(args: { filePath: string; thresholdDB: number }): Promise<Array<{ start: number; end: number; duration: number }>>;

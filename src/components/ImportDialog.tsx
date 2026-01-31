@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Button } from './Button';
-import { VideoFile } from '../services/video-types';
+import { VideoFile, VideoMetadata } from '../services/video-types';
 
 interface ImportDialogProps {
   isOpen: boolean;
@@ -32,6 +32,61 @@ async function electronDialogOpenFile(multiple: boolean): Promise<string[]> {
   });
   
   return result || [];
+}
+
+// Fetch video metadata from IPC
+async function getVideoMetadata(filePath: string): Promise<VideoMetadata> {
+  if (!isElectronApp() || !window.electronAPI) {
+    throw new Error('Electron API not available');
+  }
+  
+  // Try to get full metadata if available
+  if (window.electronAPI.video && typeof window.electronAPI.video.getMetadata === 'function') {
+    try {
+      return await window.electronAPI.video.getMetadata(filePath);
+    } catch (e) {
+      // Fallback to duration only
+    }
+  }
+  
+  // Fallback: get just duration
+  if (window.electronAPI.video && typeof window.electronAPI.video.getVideoDuration === 'function') {
+    const duration = await window.electronAPI.video.getVideoDuration(filePath);
+    return {
+      duration,
+      width: 0,
+      height: 0,
+      format: 'unknown',
+      codec: 'unknown',
+      bitrate: 0,
+      fps: 0
+    };
+  }
+  
+  // Last resort: return zeros
+  return {
+    duration: 0,
+    width: 0,
+    height: 0,
+    format: 'unknown',
+    codec: 'unknown',
+    bitrate: 0,
+    fps: 0
+  };
+}
+
+// Get file size
+async function getFileSize(filePath: string): Promise<number | undefined> {
+  try {
+    // Use Node.js-like stat if available through Electron
+    if (isElectronApp() && (window as any).electronAPI?.fs) {
+      const stats = await (window as any).electronAPI.fs.stat(filePath);
+      return stats?.size;
+    }
+  } catch (e) {
+    console.warn('[ImportDialog] Could not get file size:', e);
+  }
+  return undefined;
 }
 
 export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
@@ -68,12 +123,34 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
 
         console.log(`[ImportDialog] Processing file: ${fileName} (${path})`);
 
+        // Fetch metadata from IPC
+        let metadata: VideoMetadata = {
+          duration: 0,
+          width: 0,
+          height: 0,
+          format: fileName.split('.').pop()?.toLowerCase() || 'unknown',
+          codec: 'unknown',
+          bitrate: 0,
+          fps: 0
+        };
+
+        let size: number | undefined;
+
+        try {
+          metadata = await getVideoMetadata(path);
+          size = await getFileSize(path);
+          console.log(`[ImportDialog] Metadata fetched: ${metadata.duration}s, ${size ? (size / (1024 * 1024)).toFixed(1) + ' MB' : 'unknown size'}`);
+        } catch (metaError) {
+          console.warn(`[ImportDialog] Could not fetch metadata for ${fileName}:`, metaError);
+        }
+
         newVideos.push({
           id: crypto.randomUUID(),
           name: fileName,
           path: path,
-          duration: 0,
-          format: fileName.split('.').pop()?.toLowerCase() || 'unknown',
+          duration: metadata.duration,
+          format: metadata.format,
+          size: size,
           status: 'ready'
         });
       }

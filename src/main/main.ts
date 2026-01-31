@@ -86,6 +86,15 @@ ipcMain.handle('get-video-duration', async (_, filePath: string) => {
   }
 });
 
+ipcMain.handle('get-video-metadata', async (_, filePath: string) => {
+  try {
+    return await videoService.getMetadata(filePath);
+  } catch (error) {
+    console.error('Failed to get video metadata:', error);
+    throw error;
+  }
+});
+
 ipcMain.handle('trim-video', async (_, args: { inputPath: string; outputPath: string; startTime: number; endTime: number }) => {
   try {
     await videoService.trimVideo(args.inputPath, args.outputPath, args.startTime, args.endTime);
