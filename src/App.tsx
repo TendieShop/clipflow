@@ -45,16 +45,19 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-[#0a0a0a] overflow-hidden">
-      {/* Header */}
-      <header className="flex-none h-12 bg-[#0a0a0a] border-b border-[#262626] flex items-center px-4">
-        {/* Left spacer for macOS controls */}
-        <div className="w-20" />
-        
+      {/* Header - Draggable area for window moving */}
+      <header 
+        className="flex-none h-12 bg-[#0a0a0a] border-b border-[#262626] flex items-center px-4 select-none"
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      >
         {/* App Title - Centered */}
-        <h1 className="flex-1 text-center font-semibold text-[#f5f5f5] text-lg">ClipFlow</h1>
+        <h1 className="flex-1 text-center font-semibold text-[#f5f5f5] text-lg pointer-events-none">ClipFlow</h1>
         
-        {/* Header Actions */}
-        <div className="w-20 flex justify-end">
+        {/* Header Actions - Must be no-drag for buttons to work */}
+        <div 
+          className="absolute right-4"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
           <IconButton
             variant="ghost"
             size="icon"
