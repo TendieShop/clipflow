@@ -63,6 +63,11 @@ function createMainWindow() {
     backgroundColor: '#09090b',
   });
 
+  // Disable hardware acceleration to prevent GPU overlay errors
+  // This can cause issues with video rendering on some GPUs
+  app.commandLine.appendSwitch('disable-gpu');
+  app.commandLine.appendSwitch('disable-software-rasterizer');
+
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {

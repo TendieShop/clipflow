@@ -110,7 +110,30 @@ export function VideoPlayer({ src, onTimeUpdate, onDurationChange, initialTime =
 
     const handleError = () => {
       console.error('[VideoPlayer] Video error:', video.error);
-      setError(video.error?.message || 'Failed to load video');
+      
+      // Provide user-friendly error messages
+      let errorMessage = 'Failed to load video';
+      
+      if (video.error) {
+        switch (video.error.code) {
+          case 1:
+            errorMessage = 'Video file not found or corrupted';
+            break;
+          case 2:
+            errorMessage = 'Video format not supported';
+            break;
+          case 3:
+            errorMessage = 'Network error loading video';
+            break;
+          case 4:
+            errorMessage = 'Video cannot be decoded';
+            break;
+          default:
+            errorMessage = video.error.message || 'Unknown video error';
+        }
+      }
+      
+      setError(errorMessage);
       setIsLoading(false);
     };
 
