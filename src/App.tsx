@@ -46,9 +46,9 @@ function App() {
   return (
     <div className="h-screen flex flex-col bg-[#0a0a0a] overflow-hidden">
       {/* Header */}
-      <header className="flex-none h-12 bg-[#0a0a0a] border-b border-[#262626] flex items-center px-4 pl-20">
-        {/* App Title */}
-        <h1 className="font-semibold text-[#f5f5f5] text-lg">ClipFlow</h1>
+      <header className="flex-none h-12 bg-[#0a0a0a] border-b border-[#262626] flex items-center px-4">
+        {/* App Title - Centered */}
+        <h1 className="absolute left-1/2 -translate-x-1/2 font-semibold text-[#f5f5f5] text-lg">ClipFlow</h1>
         
         {/* Header Actions */}
         <div className="flex-1" />
