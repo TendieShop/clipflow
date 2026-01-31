@@ -16,6 +16,11 @@ interface ElectronVideoAPI {
     bitrate: number;
     fps: number;
   }>;
+  getAudioData(filePath: string): Promise<{
+    samples: number[];
+    sampleRate: number;
+    duration: number;
+  } | null>;
   trimVideo(args: { inputPath: string; outputPath: string; startTime: number; endTime: number }): Promise<void>;
   extractAudio(args: { inputPath: string; outputPath: string }): Promise<void>;
   analyzeSilence(args: { filePath: string; thresholdDB: number }): Promise<Array<{ start: number; end: number; duration: number }>>;

@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   video: {
     getVideoDuration: (filePath: string) => ipcRenderer.invoke('get-video-duration', filePath),
     getMetadata: (filePath: string) => ipcRenderer.invoke('get-video-metadata', filePath),
+    getAudioData: (filePath: string) => ipcRenderer.invoke('get-audio-data', filePath),
     trimVideo: (args: { inputPath: string; outputPath: string; startTime: number; endTime: number }) =>
       ipcRenderer.invoke('trim-video', args),
     extractAudio: (args: { inputPath: string; outputPath: string }) =>

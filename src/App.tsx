@@ -8,6 +8,7 @@ import { SettingsDialog } from './components/SettingsDialog';
 import { TrimDialog } from './components/TrimDialog';
 import { ExtractAudioDialog } from './components/ExtractAudioDialog';
 import { ErrorBoundary, DesktopAppRequired } from './components/ErrorBoundary';
+import { AudioWaveform } from './components/AudioWaveform';
 import { Button, IconButton } from './components/Button';
 import { Input } from './components/Input';
 import { Settings, Scissors, Music } from 'lucide-react';
@@ -166,17 +167,26 @@ function AppContent() {
 
           {/* Timeline */}
           {selectedVideo && (
-            <div className="h-32 bg-[#0a0a0a] border-t border-[#262626] p-4">
+            <div className="h-40 bg-[#0a0a0a] border-t border-[#262626] p-4">
               <div className="text-xs text-[#a3a3a3] mb-2">
                 Timeline - {formatTime(currentTime)} / {formatTime(selectedVideo.duration)}
               </div>
+              
+              {/* Audio Waveform Visualization */}
+              <AudioWaveform
+                video={selectedVideo}
+                currentTime={currentTime}
+                duration={selectedVideo.duration}
+                onSeek={handleSeek}
+              />
+              
               <input
                 type="range"
                 min={0}
                 max={selectedVideo.duration || 100}
                 value={currentTime}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSeek(Number(e.target.value))}
-                className="w-full"
+                className="w-full mt-2"
               />
             </div>
           )}
