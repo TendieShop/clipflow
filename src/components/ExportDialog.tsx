@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { VideoFile } from '../services/video-types';
+import { ErrorDisplay } from './ErrorBoundary';
 import { Button } from './Button';
 import { X } from 'lucide-react';
 
@@ -154,9 +155,7 @@ export function ExportDialog({ isOpen, video, onClose, onExport }: ExportDialogP
           )}
 
           {error && (
-            <div className="error-message p-2 bg-[#ef4444]/10 border border-[#ef4444] rounded text-sm text-[#ef4444]">
-              {error}
-            </div>
+            <ErrorDisplay error={error} onRetry={handleExport} onDismiss={() => setError(null)} />
           )}
         </div>
 

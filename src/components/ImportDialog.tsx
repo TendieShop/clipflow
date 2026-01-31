@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Button } from './Button';
+import { ErrorDisplay } from './ErrorBoundary';
 import { VideoFile, VideoMetadata } from '../services/video-types';
 
 interface ImportDialogProps {
@@ -184,9 +185,7 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
 
         <div className="dialog-content">
           {error && (
-            <div className="error-message">
-              {error}
-            </div>
+            <ErrorDisplay error={error} onRetry={handleImport} onDismiss={() => setError(null)} />
           )}
 
           <div className="import-options">

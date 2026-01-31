@@ -7,11 +7,17 @@ import { SilenceDetectionPanel } from './components/SilenceDetectionPanel';
 import { SettingsDialog } from './components/SettingsDialog';
 import { TrimDialog } from './components/TrimDialog';
 import { ExtractAudioDialog } from './components/ExtractAudioDialog';
+import { ErrorBoundary, DesktopAppRequired } from './components/ErrorBoundary';
 import { Button, IconButton } from './components/Button';
 import { Input } from './components/Input';
 import { Settings, Scissors, Music } from 'lucide-react';
 
-function App() {
+// Check if running in Electron app
+function isElectronApp(): boolean {
+  return !!(window as any).electronAPI;
+}
+
+function AppContent() {
   const [videos, setVideos] = useState<VideoFile[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<VideoFile | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -295,6 +301,29 @@ function App() {
         />
       )}
     </div>
+  );
+}
+
+// Main App component with Error Boundary
+function App() {
+  // Show fallback if not in Electron app
+  if (!isElectronApp()) {
+    return <DesktopAppRequired />;
+  }
+
+  return (
+    <ErrorBoundary
+      fallback={
+        <div className="p-8 text-center">
+          <p className="text-[#a3a3a3] mb-4">Something went wrong loading the app</p>
+          <Button variant="default" onClick={() => window.location.reload()}>
+            Reload
+          </Button>
+        </div>
+      }
+    >
+      <AppContent />
+    </ErrorBoundary>
   );
 }
 

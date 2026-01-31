@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { VideoFile } from '../services/video-types';
+import { ErrorDisplay } from './ErrorBoundary';
 import { Button } from './Button';
 import { X } from 'lucide-react';
 
@@ -102,9 +103,7 @@ export function SilenceDetectionPanel({ video, onClose }: SilenceDetectionPanelP
           </Button>
 
           {error && (
-            <div className="p-2 bg-[#ef4444]/10 border border-[#ef4444] rounded text-sm text-[#ef4444]">
-              {error}
-            </div>
+            <ErrorDisplay error={error} onRetry={handleAnalyze} onDismiss={() => setError(null)} />
           )}
 
           {segments.length > 0 && (
