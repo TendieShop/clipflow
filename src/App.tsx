@@ -137,7 +137,7 @@ function AppContent() {
           </div>
 
           {/* Import Button */}
-          <div className="p-4 border-t border-[#262626]">
+          <div className="p-4 border-t border-[var(--color-border)]">
             <Button
               variant="default"
               className="w-full"
@@ -149,10 +149,10 @@ function AppContent() {
         </aside>
 
         {/* Center - Video Preview with Playback */}
-        <main className="flex-1 flex flex-col overflow-hidden bg-[#0a0a0a]">
+        <main className="flex-1 flex flex-col overflow-hidden bg-[var(--color-background)]">
           <div className="flex-1 flex items-center justify-center p-4">
             {selectedVideo ? (
-              <div className="w-full max-w-4xl aspect-video bg-[#171717] rounded-lg overflow-hidden">
+              <div className="w-full max-w-4xl aspect-video bg-[var(--color-surface)] rounded-lg overflow-hidden">
                 <VideoPlayer
                   src={selectedVideo.path}
                   currentTime={currentTime}
@@ -162,7 +162,7 @@ function AppContent() {
                 />
               </div>
             ) : (
-              <div className="text-center text-[#737373]">
+              <div className="text-center text-[var(--color-text-muted)]">
                 <p>No video selected</p>
                 <p className="text-sm mt-2">Import a video to get started</p>
               </div>
@@ -201,16 +201,16 @@ function AppContent() {
           {/* Video Info */}
           {selectedVideo && (
             <div className="p-4 border-b border-[var(--color-border)]">
-              <h2 className="font-medium text-[#f5f5f5] mb-2">Video Info</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)] mb-2">Video Info</h2>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-[#737373]">Name:</span>
-                  <span className="text-[#f5f5f5] truncate max-w-[150px]">
+                  <span className="text-[var(--color-text-muted)]">Name:</span>
+                  <span className="text-[var(--color-text-primary)] truncate max-w-[150px]">
                     {selectedVideo.name}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#737373]">Duration:</span>
+                  <span className="text-[var(--color-text-muted)]">Duration:</span>
                   <span className="text-[var(--color-text-primary)]">
                     {formatTime(selectedVideo.duration)}
                   </span>
