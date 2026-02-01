@@ -260,6 +260,9 @@ export function VideoPlayer({ src, onTimeUpdate, onDurationChange, initialTime =
       <video
         ref={videoRef}
         data-testid="video-element"
+        playsInline
+        preload="auto"
+        crossOrigin="anonymous"
         style={{ display: error || isLoading ? 'none' : 'block', width: '100%', height: '100%' }}
       />
       
