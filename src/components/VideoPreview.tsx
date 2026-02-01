@@ -154,22 +154,62 @@ export function VideoPlayer({ src, onTimeUpdate, onDurationChange, initialTime =
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('ended', handleEnded);
 
-    // Set the source
-    const convertedSrc = videoSrc(src);
-    if (convertedSrc) {
-      video.src = convertedSrc;
-      video.load();
-      // Set initial time if provided
-      if (initialTime > 0 && video.duration > initialTime) {
-        video.currentTime = initialTime;
+    // Load video using blob URL (works with contextIsolation: true)
+    async function loadVideo() {
+      if (!src) return;
+      
+      // Get current video element reference
+      const currentVideo = videoRef.current;
+      if (!currentVideo) return;
+      
+      try {
+        // Check if we have Electron API for reading files
+        if (window.electronAPI && window.electronAPI.video && window.electronAPI.video.readVideoFile) {
+          console.log('[VideoPlayer] Loading video via IPC blob URL...');
+          
+          const result = await window.electronAPI.video.readVideoFile(src);
+          
+          // Create blob from base64 data
+          const byteCharacters = atob(result.data);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'video/mp4' });
+          const blobUrl = URL.createObjectURL(blob);
+          
+          currentVideo.src = blobUrl;
+          currentVideo.load();
+          console.log('[VideoPlayer] Video loaded via blob URL, size:', (result.size / (1024 * 1024)).toFixed(2), 'MB');
+        } else {
+          // Fallback to file URL (won't work with contextIsolation but worth trying)
+          console.warn('[VideoPlayer] IPC not available, trying file:// URL');
+          const convertedSrc = videoSrc(src);
+          if (convertedSrc) {
+            currentVideo.src = convertedSrc;
+            currentVideo.load();
+          }
+        }
+      } catch (err) {
+        console.error('[VideoPlayer] Failed to load video:', err);
+        setError('Failed to load video. Please re-import the file.');
+        setIsLoading(false);
       }
     }
+
+    loadVideo();
 
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('error', handleError);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('ended', handleEnded);
+      
+      // Clean up blob URL
+      if (video.src && video.src.startsWith('blob:')) {
+        URL.revokeObjectURL(video.src);
+      }
     };
   }, [src, videoSrc, onTimeUpdate, onDurationChange, initialTime]);
 

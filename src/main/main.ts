@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
 import path from 'path';
+import fs from 'fs';
 import { autoUpdater } from 'electron-updater';
 import { VideoProcessingService } from '../services/video-processing';
 
@@ -105,6 +106,20 @@ ipcMain.handle('get-audio-data', async (_, filePath: string) => {
     return await videoService.getAudioData(filePath);
   } catch (error) {
     console.error('Failed to get audio data:', error);
+    throw error;
+  }
+});
+
+// Read video file as buffer for blob URL (needed with contextIsolation: true)
+ipcMain.handle('read-video-file', async (_, filePath: string) => {
+  try {
+    const buffer = await fs.promises.readFile(filePath);
+    return {
+      data: buffer.toString('base64'),
+      size: buffer.length,
+    };
+  } catch (error) {
+    console.error('Failed to read video file:', error);
     throw error;
   }
 });

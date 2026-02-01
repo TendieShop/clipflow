@@ -21,6 +21,7 @@ interface ElectronVideoAPI {
     sampleRate: number;
     duration: number;
   } | null>;
+  readVideoFile(filePath: string): Promise<{ data: string; size: number }>;
   trimVideo(args: { inputPath: string; outputPath: string; startTime: number; endTime: number }): Promise<void>;
   extractAudio(args: { inputPath: string; outputPath: string }): Promise<void>;
   analyzeSilence(args: { filePath: string; thresholdDB: number }): Promise<Array<{ start: number; end: number; duration: number }>>;
