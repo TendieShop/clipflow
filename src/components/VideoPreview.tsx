@@ -56,17 +56,25 @@ export function VideoPreview({ video, isSelected, onSelect }: VideoPreviewProps)
 
 interface VideoPlayerProps {
   src: string | null;
+  currentTime?: number;
   onTimeUpdate?: (currentTime: number) => void;
   onDurationChange?: (duration: number) => void;
+  onSeek?: (time: number) => void;
   initialTime?: number;
 }
 
-export function VideoPlayer({ src, onTimeUpdate, onDurationChange, initialTime = 0 }: VideoPlayerProps) {
+export function VideoPlayer({ 
+  src, 
+  currentTime: externalTime, 
+  onTimeUpdate, 
+  onDurationChange,
+  onSeek,
+  initialTime = 0 
+}: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(initialTime);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
@@ -85,6 +93,17 @@ export function VideoPlayer({ src, onTimeUpdate, onDurationChange, initialTime =
     const normalizedPath = path.replace(/\\/g, '/');
     return `file://${normalizedPath}`;
   }, []);
+
+  // Sync external time changes to video element
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || externalTime === undefined) return;
+
+    // Only update if difference is more than 0.5 seconds (avoid loop)
+    if (Math.abs(video.currentTime - externalTime) > 0.5) {
+      video.currentTime = externalTime;
+    }
+  }, [externalTime]);
 
   useEffect(() => {
     if (!src) {
@@ -106,6 +125,16 @@ export function VideoPlayer({ src, onTimeUpdate, onDurationChange, initialTime =
         onDurationChange(video.duration);
       }
       setIsLoading(false);
+    };
+
+    const handlePlay = () => {
+      console.log('[VideoPlayer] Play started');
+      setIsPlaying(true);
+    };
+
+    const handlePause = () => {
+      console.log('[VideoPlayer] Paused');
+      setIsPlaying(false);
     };
 
     const handleError = () => {
@@ -139,7 +168,6 @@ export function VideoPlayer({ src, onTimeUpdate, onDurationChange, initialTime =
 
     const handleTimeUpdate = () => {
       const time = video.currentTime;
-      setCurrentTime(time);
       if (onTimeUpdate) {
         onTimeUpdate(time);
       }
@@ -150,6 +178,8 @@ export function VideoPlayer({ src, onTimeUpdate, onDurationChange, initialTime =
     };
 
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
     video.addEventListener('error', handleError);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('ended', handleEnded);
@@ -234,7 +264,9 @@ export function VideoPlayer({ src, onTimeUpdate, onDurationChange, initialTime =
 
     const time = parseFloat(e.target.value);
     video.currentTime = time;
-    setCurrentTime(time);
+    if (onSeek) {
+      onSeek(time);
+    }
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -315,13 +347,13 @@ export function VideoPlayer({ src, onTimeUpdate, onDurationChange, initialTime =
               type="range"
               min={0}
               max={duration || 100}
-              value={currentTime}
+              value={externalTime ?? initialTime}
               onChange={handleSeek}
               className="seek-slider"
               data-testid="seek-slider"
             />
             <div className="time-display">
-              {formatTime(currentTime)} / {formatTime(duration)}
+              {formatTime(externalTime ?? initialTime)} / {formatTime(duration)}
             </div>
           </div>
           

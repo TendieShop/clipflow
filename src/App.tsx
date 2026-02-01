@@ -8,6 +8,7 @@ import { SettingsDialog } from './components/SettingsDialog';
 import { TrimDialog } from './components/TrimDialog';
 import { ExtractAudioDialog } from './components/ExtractAudioDialog';
 import { ErrorBoundary, DesktopAppRequired } from './components/ErrorBoundary';
+import { ThemeProvider, ThemeToggle } from './components/ThemeToggle';
 import { AudioWaveform } from './components/AudioWaveform';
 import { Button, IconButton } from './components/Button';
 import { Input } from './components/Input';
@@ -67,38 +68,39 @@ function AppContent() {
   );
 
   return (
-    <div className="h-screen flex flex-col bg-[#0a0a0a] overflow-hidden">
-      {/* Header - Draggable area for window moving */}
-      <header 
-        className="flex-none h-12 bg-[#0a0a0a] border-b border-[#262626] flex items-center px-4 select-none"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      >
-        {/* App Title - Centered */}
-        <h1 className="flex-1 text-center font-semibold text-[#f5f5f5] text-lg pointer-events-none">ClipFlow</h1>
-        
-        {/* Header Actions - Must be no-drag for buttons to work */}
-        <div 
-          className="absolute right-4"
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+    <div className="h-screen flex flex-col bg-[var(--color-background)] overflow-hidden">
+        {/* Header - Draggable area for window moving */}
+        <header 
+          className="flex-none h-12 bg-[var(--color-background)] border-b border-[var(--color-border)] flex items-center px-4 select-none"
+          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          <IconButton
-            variant="ghost"
-            size="icon"
-            label="Settings"
-            aria-label="Settings"
-            onClick={() => setIsSettingsOpen(true)}
+          {/* App Title - Centered */}
+          <h1 className="flex-1 text-center font-semibold text-[var(--color-text-primary)] text-lg pointer-events-none">ClipFlow</h1>
+          
+          {/* Header Actions - Must be no-drag for buttons to work */}
+          <div 
+            className="absolute right-4 flex items-center gap-2"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
-            <Settings className="w-5 h-5" />
-          </IconButton>
-        </div>
-      </header>
+            <ThemeToggle />
+            <IconButton
+              variant="ghost"
+              size="icon"
+              label="Settings"
+              aria-label="Settings"
+              onClick={() => setIsSettingsOpen(true)}
+            >
+              <Settings className="w-5 h-5" />
+            </IconButton>
+          </div>
+        </header>
 
-      {/* Main Content */}
+        {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Video Library */}
-        <aside className="w-64 bg-[#0a0a0a] border-r border-[#262626] flex flex-col">
+        <aside className="w-64 bg-[var(--color-background)] border-r border-[var(--color-border)] flex flex-col">
           {/* Search */}
-          <div className="p-4 border-b border-[#262626]">
+          <div className="p-4 border-b border-[var(--color-border)]">
             <Input
               placeholder="Search videos..."
               value={searchQuery}
@@ -109,7 +111,7 @@ function AppContent() {
           {/* Video List */}
           <div className="flex-1 overflow-y-auto p-2">
             {filteredVideos.length === 0 ? (
-              <div className="text-center text-[#737373] py-8">
+              <div className="text-center text-[var(--color-text-muted)] py-8">
                 No videos imported yet
               </div>
             ) : (
@@ -119,14 +121,14 @@ function AppContent() {
                   onClick={() => setSelectedVideo(video)}
                   className={`p-2 rounded cursor-pointer mb-1 ${
                     selectedVideo?.id === video.id
-                      ? 'bg-[#262626]'
-                      : 'hover:bg-[#171717]'
+                      ? 'bg-[var(--color-hover)]'
+                      : 'hover:bg-[var(--color-surface)]'
                   }`}
                 >
-                  <div className="font-medium text-sm text-[#f5f5f5] truncate">
+                  <div className="font-medium text-sm text-[var(--color-text-primary)] truncate">
                     {video.name}
                   </div>
-                  <div className="text-xs text-[#737373]">
+                  <div className="text-xs text-[var(--color-text-muted)]">
                     {formatTime(video.duration)}
                   </div>
                 </div>
@@ -153,7 +155,9 @@ function AppContent() {
               <div className="w-full max-w-4xl aspect-video bg-[#171717] rounded-lg overflow-hidden">
                 <VideoPlayer
                   src={selectedVideo.path}
+                  currentTime={currentTime}
                   onTimeUpdate={handleSeek}
+                  onSeek={handleSeek}
                   initialTime={currentTime}
                 />
               </div>
@@ -167,8 +171,8 @@ function AppContent() {
 
           {/* Timeline */}
           {selectedVideo && (
-            <div className="h-40 bg-[#0a0a0a] border-t border-[#262626] p-4">
-              <div className="text-xs text-[#a3a3a3] mb-2">
+            <div className="h-40 bg-[var(--color-background)] border-t border-[var(--color-border)] p-4">
+              <div className="text-xs text-[var(--color-text-secondary)] mb-2">
                 Timeline - {formatTime(currentTime)} / {formatTime(selectedVideo.duration)}
               </div>
               
@@ -193,10 +197,10 @@ function AppContent() {
         </main>
 
         {/* Right Sidebar - Info & Actions */}
-        <aside className="w-72 bg-[#0a0a0a] border-l border-[#262626] flex flex-col">
+        <aside className="w-72 bg-[var(--color-background)] border-l border-[var(--color-border)] flex flex-col">
           {/* Video Info */}
           {selectedVideo && (
-            <div className="p-4 border-b border-[#262626]">
+            <div className="p-4 border-b border-[var(--color-border)]">
               <h2 className="font-medium text-[#f5f5f5] mb-2">Video Info</h2>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
@@ -207,14 +211,14 @@ function AppContent() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#737373]">Duration:</span>
-                  <span className="text-[#f5f5f5]">
+                  <span className="text-[var(--color-text-primary)]">
                     {formatTime(selectedVideo.duration)}
                   </span>
                 </div>
                 {selectedVideo.size && (
                   <div className="flex justify-between">
-                    <span className="text-[#737373]">Size:</span>
-                    <span className="text-[#f5f5f5]">
+                    <span className="text-[var(--color-text-muted)]">Size:</span>
+                    <span className="text-[var(--color-text-primary)]">
                       {(selectedVideo.size / (1024 * 1024)).toFixed(1)} MB
                     </span>
                   </div>
@@ -224,7 +228,7 @@ function AppContent() {
           )}
 
           {/* Actions */}
-          <div className="p-4 border-b border-[#262626] space-y-2">
+          <div className="p-4 border-b border-[var(--color-border)] space-y-2">
             <Button
               variant="default"
               className="w-full"
@@ -322,18 +326,20 @@ function App() {
   }
 
   return (
-    <ErrorBoundary
-      fallback={
-        <div className="p-8 text-center">
-          <p className="text-[#a3a3a3] mb-4">Something went wrong loading the app</p>
-          <Button variant="default" onClick={() => window.location.reload()}>
-            Reload
-          </Button>
-        </div>
-      }
-    >
-      <AppContent />
-    </ErrorBoundary>
+    <ThemeProvider>
+      <ErrorBoundary
+        fallback={
+          <div className="p-8 text-center">
+            <p className="text-[var(--color-text-secondary)] mb-4">Something went wrong loading the app</p>
+            <Button variant="default" onClick={() => window.location.reload()}>
+              Reload
+            </Button>
+          </div>
+        }
+      >
+        <AppContent />
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }
 
